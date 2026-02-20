@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
-python3 -m venv .venv
+cd "$(dirname "$0")/.."
+[ -d .venv ] || python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 echo "Setup complete."
