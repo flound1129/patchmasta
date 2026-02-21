@@ -73,8 +73,7 @@ class AudioMonitor:
         if self.is_running:
             return
         import sounddevice as sd
-        # Use selected device for input, system default for output
-        device = (self._device, None) if self._device is not None else None
+        device = self._resolve_device_pair(sd)
         self._stream = sd.Stream(
             samplerate=self._sample_rate,
             channels=1,
@@ -83,6 +82,18 @@ class AudioMonitor:
             callback=self._callback,
         )
         self._stream.start()
+
+    def _resolve_device_pair(self, sd):
+        if self._device is None:
+            return None
+        in_info = sd.query_devices(self._device)
+        in_api = in_info["hostapi"]
+        # Find an output device on the same host API
+        for i, dev in enumerate(sd.query_devices()):
+            if dev["hostapi"] == in_api and dev["max_output_channels"] > 0:
+                return (self._device, i)
+        # Fallback: let sounddevice pick the default output
+        return (self._device, None)
 
     def stop(self) -> None:
         if self._stream is not None:
