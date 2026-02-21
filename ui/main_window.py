@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout,
-    QSplitter, QMessageBox, QInputDialog,
+    QSplitter, QMessageBox, QInputDialog, QProgressDialog,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from midi.sysex import (
@@ -20,20 +20,27 @@ APP_ROOT = Path(__file__).parent.parent
 
 class PullWorker(QThread):
     """Pulls one or more program slots from the device on a background thread."""
-    patch_ready = pyqtSignal(object)  # Patch on success, None on timeout
-    progress = pyqtSignal(int, int)   # slots_done, slots_total
-    finished = pyqtSignal()
+    patch_ready = pyqtSignal(object)       # Patch on success, None on timeout
+    progress = pyqtSignal(int, int, str)   # slots_done, slots_total, status_message
+    finished = pyqtSignal(int, int)        # patches_received, slots_total
 
     def __init__(self, device, slots: list[int], parent=None) -> None:
         super().__init__(parent)
         self._device = device
         self._slots = slots
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        self._cancelled = True
 
     def run(self) -> None:
         total = len(self._slots)
+        received_count = 0
         try:
             for i, slot in enumerate(self._slots):
-                self.progress.emit(i, total)
+                if self._cancelled:
+                    break
+                self.progress.emit(i, total, f"Slot {slot + 1} of {total}…")
                 received: list[bytes] = []
                 event = threading.Event()
 
@@ -48,7 +55,7 @@ class PullWorker(QThread):
                 self._device.send(
                     build_program_dump_request(channel=1, program=slot & 0x7F)
                 )
-                event.wait(timeout=2.0)
+                event.wait(timeout=0.5)
 
                 # Clear callback before next slot to prevent cross-slot attribution
                 try:
@@ -57,6 +64,7 @@ class PullWorker(QThread):
                     pass
 
                 if received:
+                    received_count += 1
                     self.patch_ready.emit(Patch(
                         name=f"Program {slot + 1:03d}",
                         program_number=slot,
@@ -67,14 +75,14 @@ class PullWorker(QThread):
         except Exception:
             pass
         finally:
-            self.finished.emit()
+            self.finished.emit(received_count, total)
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Korg RK-100S 2 Patch Manager")
-        self.resize(1000, 600)
+        self.resize(1500, 900)
         self._library = Library(root=APP_ROOT)
         self._selected_patch: Patch | None = None
         self._selected_patch_path: Path | None = None
@@ -128,9 +136,21 @@ class MainWindow(QMainWindow):
         if not device.connected:
             return
         self._set_action_buttons_enabled(False)
+
+        total = len(slots)
+        self._progress_dialog = QProgressDialog(
+            f"Pulling slot 1 of {total}…", "Cancel", 0, total, self
+        )
+        self._progress_dialog.setWindowTitle("Loading Patches")
+        self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self._progress_dialog.setMinimumDuration(0)
+        self._progress_dialog.setValue(0)
+
         worker = PullWorker(device, slots, parent=self)
         self._pull_worker = worker
+        self._progress_dialog.canceled.connect(worker.cancel)
         worker.patch_ready.connect(self._on_patch_ready)
+        worker.progress.connect(self._on_pull_progress)
         worker.finished.connect(self._on_pull_finished)
         worker.start()
 
@@ -138,9 +158,18 @@ class MainWindow(QMainWindow):
         if patch is not None:
             self._library.save_patch(patch)
 
-    def _on_pull_finished(self) -> None:
+    def _on_pull_progress(self, done: int, total: int, message: str) -> None:
+        self._progress_dialog.setValue(done)
+        self._progress_dialog.setLabelText(message)
+
+    def _on_pull_finished(self, received: int, total: int) -> None:
+        self._progress_dialog.close()
         self._refresh_library()
         self._set_action_buttons_enabled(self._device_panel.device.connected)
+        if total > 1:
+            self.statusBar().showMessage(
+                f"Done — {received} of {total} patches received.", 5000
+            )
 
     def _set_action_buttons_enabled(self, enabled: bool) -> None:
         for btn in (
