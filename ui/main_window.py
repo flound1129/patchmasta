@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import time
+from core.logger import AppLogger
 from midi.sysex import (
     build_program_change, build_program_dump_request,
     build_program_write, parse_program_dump,
@@ -26,10 +27,11 @@ class PullWorker(QThread):
     progress = pyqtSignal(int, int, str)   # slots_done, slots_total, status_message
     finished = pyqtSignal(int, int)        # patches_received, slots_total
 
-    def __init__(self, device, slots: list[int], parent=None) -> None:
+    def __init__(self, device, slots: list[int], logger: AppLogger | None = None, parent=None) -> None:
         super().__init__(parent)
         self._device = device
         self._slots = slots
+        self._logger = logger or AppLogger()
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -48,7 +50,7 @@ class PullWorker(QThread):
 
                 def on_sysex(midi_event, data=None, _recv=received, _evt=event):
                     message, _ = midi_event
-                    print(f"[RX] {[hex(b) for b in message[:12]]}{'...' if len(message) > 12 else ''}", flush=True)
+                    self._logger.midi(f"RX: {[hex(b) for b in message[:12]]}{'...' if len(message) > 12 else ''}")
                     parsed = parse_program_dump(list(message))
                     if parsed is not None:
                         _recv.append(parsed)
@@ -61,7 +63,7 @@ class PullWorker(QThread):
 
                 msg = build_program_dump_request(channel=1)
                 if i == 0:
-                    print(f"[TX] slot {slot}: pc={[hex(b) for b in pc_msg]} dump={[hex(b) for b in msg]}", flush=True)
+                    self._logger.midi(f"TX: slot {slot}: pc={[hex(b) for b in pc_msg]} dump={[hex(b) for b in msg]}")
                 self._device.set_sysex_callback(on_sysex)
                 self._device.send(msg)
                 event.wait(timeout=2.0)
@@ -92,6 +94,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Korg RK-100S 2 Patch Manager")
         self.resize(1500, 900)
+        self._logger = AppLogger()
         self._library = Library(root=APP_ROOT)
         self._selected_patch: Patch | None = None
         self._selected_patch_path: Path | None = None
@@ -157,7 +160,7 @@ class MainWindow(QMainWindow):
         self._progress_dialog.setMinimumDuration(0)
         self._progress_dialog.setValue(0)
 
-        worker = PullWorker(device, slots, parent=self)
+        worker = PullWorker(device, slots, logger=self._logger, parent=self)
         self._pull_worker = worker
         self._progress_dialog.canceled.connect(worker.cancel)
         worker.patch_ready.connect(self._on_patch_ready)

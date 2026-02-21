@@ -16,4 +16,4 @@ patchmasta = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]
-packages = ["midi", "model", "ui"]
+packages = ["core", "midi", "model", "ui"]
