@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from pathlib import Path
 from model.patch import Patch
 from model.bank import Bank
@@ -30,8 +31,8 @@ class Library:
         for f in sorted(self._patches_dir.glob("*.json")):
             try:
                 result.append(Patch.load(f))
-            except Exception:
-                pass
+            except (json.JSONDecodeError, KeyError, ValueError, OSError):
+                pass  # skip malformed or unreadable files
         return result
 
     def delete_patch(self, json_path: Path) -> None:
@@ -51,6 +52,6 @@ class Library:
         for f in sorted(self._banks_dir.glob("*.json")):
             try:
                 result.append(Bank.load(f))
-            except Exception:
-                pass
+            except (json.JSONDecodeError, KeyError, ValueError, OSError):
+                pass  # skip malformed or unreadable files
         return result
