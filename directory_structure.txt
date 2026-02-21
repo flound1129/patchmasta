@@ -96,6 +96,7 @@
 ./tests/ui/test_log_panel.py
 ./tests/ui/test_main_window.py
 ./tests/ui/test_patch_detail.py
+./tests/ui/test_settings_dialog.py
 ./ui
 ./ui/chat_panel.py
 ./ui/device_panel.py
@@ -104,4 +105,5 @@
 ./ui/log_panel.py
 ./ui/main_window.py
 ./ui/patch_detail.py
+./ui/settings_dialog.py
 ./.venv

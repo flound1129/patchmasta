@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout,
-    QSplitter, QMessageBox, QInputDialog, QProgressDialog,
+    QSplitter, QMessageBox, QInputDialog, QProgressDialog, QPushButton,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import time
@@ -19,6 +19,7 @@ from ui.patch_detail import PatchDetailPanel
 from ui.device_panel import DevicePanel
 from ui.log_panel import LogPanel
 from ui.chat_panel import ChatPanel
+from ui.settings_dialog import SettingsDialog
 from ai.controller import AIController
 from ai.llm import ClaudeBackend, GroqBackend
 from midi.params import ParamMap
@@ -122,6 +123,8 @@ class MainWindow(QMainWindow):
         self._library_panel = LibraryPanel()
         self._detail_panel = PatchDetailPanel()
         self._chat_panel = ChatPanel()
+        self._settings_btn = QPushButton("Settings")
+        self._chat_panel.layout().itemAt(0).layout().addWidget(self._settings_btn)
         self._device_panel = DevicePanel()
         h_splitter.addWidget(self._library_panel)
         h_splitter.addWidget(self._detail_panel)
@@ -152,6 +155,10 @@ class MainWindow(QMainWindow):
         self._chat_panel.message_sent.connect(self._on_chat_message)
         self._chat_panel.match_requested.connect(self._on_match_sound)
         self._chat_panel.stop_requested.connect(self._on_stop_ai)
+        self._chat_panel.backend_combo.currentTextChanged.connect(
+            self._on_backend_changed
+        )
+        self._settings_btn.clicked.connect(self._on_open_settings)
 
     def _refresh_library(self) -> None:
         banks = self._library.list_banks()
@@ -253,6 +260,18 @@ class MainWindow(QMainWindow):
         if not ok2:
             return
         self._start_pull(list(range(start, end + 1)))
+
+    def _on_backend_changed(self) -> None:
+        self._ai_controller = None
+
+    def _on_open_settings(self) -> None:
+        dlg = SettingsDialog(self._config, parent=self)
+        if dlg.exec():
+            self._ai_controller = None
+            backend_label = self._config.ai_backend.capitalize()
+            idx = self._chat_panel.backend_combo.findText(backend_label)
+            if idx >= 0:
+                self._chat_panel.backend_combo.setCurrentIndex(idx)
 
     def _get_or_create_ai_controller(self) -> AIController | None:
         if self._ai_controller is not None:
