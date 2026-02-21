@@ -138,6 +138,33 @@ class AIController(QObject):
         self._device.send_note_off(channel=1, note=note)
         return f"Played note {note} vel={velocity} for {duration_ms}ms"
 
+    def match_sound(self, wav_path: str, max_iterations: int = 10) -> None:
+        """Start sound matching in a background thread."""
+        thread = threading.Thread(
+            target=self._run_match, args=(wav_path, max_iterations), daemon=True
+        )
+        thread.start()
+
+    def _run_match(self, wav_path: str, max_iterations: int) -> None:
+        try:
+            self._stop_requested = False
+            self._logger.ai(f"Analyzing target: {wav_path}")
+            prompt = (
+                f"I want to match this sound. Here is the spectral analysis of the target WAV:\n\n"
+                f"{self._tool_analyze_audio(wav_path)}\n\n"
+                f"Based on this analysis, set the synth parameters to your best initial guess. "
+                f"Then trigger a note so we can record and compare."
+            )
+            self._history.append(Message(role="user", content=prompt))
+            for iteration in range(max_iterations):
+                if self._stop_requested:
+                    self.response_ready.emit("Matching stopped by user.")
+                    break
+                self._run_chat()
+                self._logger.ai(f"Match iteration {iteration + 1}/{max_iterations}")
+        except Exception as exc:
+            self.error.emit(str(exc))
+
     def _tool_record_audio(self, duration_s: float) -> str:
         from audio.engine import AudioRecorder
         import tempfile

@@ -18,6 +18,11 @@ from ui.library_panel import LibraryPanel
 from ui.patch_detail import PatchDetailPanel
 from ui.device_panel import DevicePanel
 from ui.log_panel import LogPanel
+from ui.chat_panel import ChatPanel
+from ai.controller import AIController
+from ai.llm import ClaudeBackend, GroqBackend
+from midi.params import ParamMap
+from core.config import AppConfig
 
 APP_ROOT = Path(__file__).parent.parent
 
@@ -101,6 +106,9 @@ class MainWindow(QMainWindow):
         self._selected_patch: Patch | None = None
         self._selected_patch_path: Path | None = None
         self._pull_worker: PullWorker | None = None
+        self._config = AppConfig()
+        self._param_map = ParamMap()
+        self._ai_controller: AIController | None = None
         self._build_ui()
         self._connect_signals()
         self._refresh_library()
@@ -113,11 +121,13 @@ class MainWindow(QMainWindow):
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._library_panel = LibraryPanel()
         self._detail_panel = PatchDetailPanel()
+        self._chat_panel = ChatPanel()
         self._device_panel = DevicePanel()
         h_splitter.addWidget(self._library_panel)
         h_splitter.addWidget(self._detail_panel)
+        h_splitter.addWidget(self._chat_panel)
         h_splitter.addWidget(self._device_panel)
-        h_splitter.setSizes([250, 450, 300])
+        h_splitter.setSizes([250, 350, 350, 300])
 
         self._log_panel = LogPanel()
 
@@ -139,6 +149,9 @@ class MainWindow(QMainWindow):
         self._device_panel.connected.connect(lambda _: self._library_panel.set_device_connected(True))
         self._device_panel.disconnected.connect(lambda: self._library_panel.set_device_connected(False))
         self._logger.message_logged.connect(self._log_panel.append_message)
+        self._chat_panel.message_sent.connect(self._on_chat_message)
+        self._chat_panel.match_requested.connect(self._on_match_sound)
+        self._chat_panel.stop_requested.connect(self._on_stop_ai)
 
     def _refresh_library(self) -> None:
         banks = self._library.list_banks()
@@ -240,3 +253,58 @@ class MainWindow(QMainWindow):
         if not ok2:
             return
         self._start_pull(list(range(start, end + 1)))
+
+    def _get_or_create_ai_controller(self) -> AIController | None:
+        if self._ai_controller is not None:
+            return self._ai_controller
+        backend_name = self._chat_panel.backend_combo.currentText().lower()
+        if backend_name == "claude":
+            if not self._config.claude_api_key:
+                QMessageBox.warning(self, "No API Key", "Set claude_api_key in ~/.patchmasta/config.json")
+                return None
+            backend = ClaudeBackend(api_key=self._config.claude_api_key)
+        else:
+            if not self._config.groq_api_key:
+                QMessageBox.warning(self, "No API Key", "Set groq_api_key in ~/.patchmasta/config.json")
+                return None
+            backend = GroqBackend(api_key=self._config.groq_api_key)
+        ctrl = AIController(
+            backend=backend,
+            device=self._device_panel.device,
+            param_map=self._param_map,
+            logger=self._logger,
+        )
+        ctrl.response_ready.connect(self._on_ai_response)
+        ctrl.tool_executed.connect(self._on_ai_tool)
+        ctrl.error.connect(self._on_ai_error)
+        self._ai_controller = ctrl
+        return ctrl
+
+    def _on_chat_message(self, text: str) -> None:
+        self._chat_panel.append_user_message(text)
+        ctrl = self._get_or_create_ai_controller()
+        if ctrl:
+            self._chat_panel.set_thinking(True)
+            ctrl.send_message(text)
+
+    def _on_match_sound(self, wav_path: str) -> None:
+        ctrl = self._get_or_create_ai_controller()
+        if ctrl:
+            self._chat_panel.set_thinking(True)
+            ctrl.match_sound(wav_path)
+
+    def _on_stop_ai(self) -> None:
+        if self._ai_controller:
+            self._ai_controller.stop()
+        self._chat_panel.set_thinking(False)
+
+    def _on_ai_response(self, text: str) -> None:
+        self._chat_panel.append_ai_message(text)
+        self._chat_panel.set_thinking(False)
+
+    def _on_ai_tool(self, tool_name: str, result: str) -> None:
+        self._chat_panel.append_tool_message(tool_name, result)
+
+    def _on_ai_error(self, error: str) -> None:
+        self._chat_panel.append_ai_message(f"Error: {error}")
+        self._chat_panel.set_thinking(False)
