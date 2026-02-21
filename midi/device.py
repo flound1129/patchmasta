@@ -43,7 +43,13 @@ class MidiDevice:
     def connect(self, port_index: int, port_name: str) -> None:
         if self._connected:
             self.disconnect()
-        self._midi_out.open_port(port_index)
+        try:
+            self._midi_out.open_port(port_index)
+        except rtmidi.SystemError as exc:
+            raise RuntimeError(
+                f"Could not open MIDI output port '{port_name}'. "
+                "It may be in use by another application (e.g. Korg software)."
+            ) from exc
         self._logger.midi(f"OUT: {port_name} (index {port_index})")
         try:
             # Input and output port indices are independent on Windows —
@@ -56,7 +62,13 @@ class MidiDevice:
             )
             if in_index is None:
                 raise RuntimeError(f"No MIDI input port found matching '{DEVICE_NAME_FRAGMENT}'")
-            self._midi_in.open_port(in_index)
+            try:
+                self._midi_in.open_port(in_index)
+            except rtmidi.SystemError as exc:
+                raise RuntimeError(
+                    f"Could not open MIDI input port '{in_ports[in_index]}'. "
+                    "It may be in use by another application (e.g. Korg software)."
+                ) from exc
             self._logger.midi(f"IN:  {in_ports[in_index]} (index {in_index})")
             # Catch-all debug listener — logs every incoming message until replaced
             self._midi_in.ignore_types(sysex=False)
