@@ -19,13 +19,13 @@ def test_program_dump_request_channel_encoding():
     assert msg[2] == 0x32  # 0x30 + (3-1)
 
 def test_parse_program_dump_returns_bytes():
-    fake = [0xF0, 0x42, 0x30, MODEL_ID, 0x40, 0x01, 0x02, 0x03, 0xF7]
+    fake = [0xF0, 0x42, 0x30, *MODEL_ID, 0x40, 0x01, 0x02, 0x03, 0xF7]
     result = parse_program_dump(fake)
     assert isinstance(result, bytes)
     assert len(result) > 0
 
 def test_parse_program_dump_rejects_non_korg():
-    bad = [0xF0, 0x41, 0x30, MODEL_ID, 0x40, 0x01, 0xF7]
+    bad = [0xF0, 0x41, 0x30, *MODEL_ID, 0x40, 0x01, 0xF7]
     assert parse_program_dump(bad) is None
 
 def test_build_program_write_structure():
@@ -43,6 +43,5 @@ def test_invalid_channel_raises():
         build_program_dump_request(channel=17, program=0)
 
 def test_parse_program_dump_rejects_missing_f7():
-    from midi.sysex import MODEL_ID
-    bad = [0xF0, 0x42, 0x30, MODEL_ID, 0x40, 0x01, 0x02]  # no F7
+    bad = [0xF0, 0x42, 0x30, *MODEL_ID, 0x40, 0x01, 0x02]  # no F7
     assert parse_program_dump(bad) is None
