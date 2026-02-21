@@ -59,5 +59,6 @@
 ./ui/device_panel.py
 ./ui/__init__.py
 ./ui/library_panel.py
+./ui/main_window.py
 ./ui/patch_detail.py
 ./.venv
