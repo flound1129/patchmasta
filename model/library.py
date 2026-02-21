@@ -37,6 +37,13 @@ class Library:
                 pass  # skip malformed or unreadable files
         return result
 
+    def clear_patches(self) -> None:
+        for f in self._patches_dir.glob("*.json"):
+            syx = f.with_suffix(".syx")
+            if syx.exists():
+                syx.unlink()
+            f.unlink()
+
     def delete_patch(self, json_path: Path) -> None:
         syx = json_path.with_suffix(".syx")
         if syx.exists():

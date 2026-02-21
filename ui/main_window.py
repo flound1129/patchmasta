@@ -248,6 +248,15 @@ class MainWindow(QMainWindow):
         )
 
     def _on_load_all(self) -> None:
+        reply = QMessageBox.question(
+            self, "Load All Programs",
+            "This will clear the current library and load all 128 programs from the device.\n\nContinue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self._library.clear_patches()
+        self._refresh_library()
         self._start_pull(list(range(128)))
 
     def _on_load_range(self) -> None:
