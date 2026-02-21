@@ -2,6 +2,7 @@
 set -e
 cd "$(dirname "$0")/.."
 [ -d .venv ] || python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
-.venv/bin/pip install -e . -q
-echo "Setup complete. Run with: .venv/bin/patchmasta"
+VENV_BIN="$([ -d .venv/Scripts ] && echo .venv/Scripts || echo .venv/bin)"
+"$VENV_BIN/pip" install -r requirements.txt -r requirements-dev.txt
+"$VENV_BIN/pip" install -e . -q
+echo "Setup complete. Run with: $VENV_BIN/patchmasta"

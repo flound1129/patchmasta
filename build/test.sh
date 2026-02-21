@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 set -e
 cd "$(dirname "$0")/.."
-.venv/bin/pytest tests/ -v "$@"
+VENV_BIN="$([ -d .venv/Scripts ] && echo .venv/Scripts || echo .venv/bin)"
+"$VENV_BIN/pytest" tests/ -v "$@"
