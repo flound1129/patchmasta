@@ -54,6 +54,7 @@
 ./tests/ui/__init__.py
 ./tests/ui/test_device_panel.py
 ./tests/ui/test_library_panel.py
+./tests/ui/test_main_window.py
 ./tests/ui/test_patch_detail.py
 ./ui
 ./ui/device_panel.py

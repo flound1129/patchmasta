@@ -38,3 +38,20 @@ def test_patch_slug_sanitizes_special_chars():
     assert "(" not in p.slug
     assert ")" not in p.slug
     assert p.slug  # non-empty
+
+def test_patch_load_blocks_sysex_path_traversal(tmp_path):
+    """A crafted sysex_file path cannot escape the patch directory."""
+    import json
+    evil = tmp_path / "evil.json"
+    evil.write_text(json.dumps({
+        "name": "Evil",
+        "program_number": 0,
+        "sysex_file": "../../etc/passwd",
+    }))
+    p = Patch.load(evil)
+    assert p.sysex_data is None  # traversal blocked, not read
+
+def test_patch_slug_empty_name_fallback():
+    """Names made entirely of special chars produce 'patch', not an empty string."""
+    p = Patch(name="!!!", program_number=0)
+    assert p.slug == "patch"

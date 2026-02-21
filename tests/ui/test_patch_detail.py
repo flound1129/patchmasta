@@ -27,3 +27,10 @@ def test_patch_detail_save_emits_signal(app, qtbot):
     panel.load_patch(Patch(name="Test", program_number=1))
     with qtbot.waitSignal(panel.patch_saved, timeout=1000):
         panel.save_btn.click()
+
+def test_patch_detail_save_without_patch_is_noop(app, qtbot):
+    from ui.patch_detail import PatchDetailPanel
+    panel = PatchDetailPanel()
+    # No patch loaded — clicking Save should not emit patch_saved
+    with qtbot.assertNotEmitted(panel.patch_saved):
+        panel.save_btn.click()

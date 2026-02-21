@@ -35,3 +35,17 @@ def test_bank_slug_sanitizes_special_chars():
     assert "(" not in b.slug
     assert ")" not in b.slug
     assert b.slug
+
+def test_bank_load_blocks_absolute_path_traversal(tmp_path):
+    """Absolute patch_file paths in bank JSON are silently skipped."""
+    import json
+    evil = tmp_path / "evil-bank.json"
+    evil.write_text(json.dumps({
+        "name": "Evil Bank",
+        "slots": [
+            {"slot": 0, "patch_file": "/etc/passwd"},
+            {"slot": 1, "patch_file": "../../outside.json"},
+        ],
+    }))
+    b = Bank.load(evil)
+    assert len(b.slots) == 0  # both unsafe paths rejected
