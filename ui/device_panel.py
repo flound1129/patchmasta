@@ -1,8 +1,9 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QComboBox, QGroupBox, QMessageBox,
+    QPushButton, QComboBox, QGroupBox, QMessageBox, QSlider,
 )
+from PyQt6.QtCore import Qt as QtCore_Qt
 from PyQt6.QtCore import pyqtSignal
 from midi.device import MidiDevice, list_midi_ports, find_rk100s2_port
 from audio.engine import AudioMonitor, list_audio_input_devices
@@ -56,11 +57,22 @@ class DevicePanel(QWidget):
         audio_row.addWidget(self.audio_device_combo, stretch=1)
         conn_layout.addLayout(audio_row)
 
+        monitor_row = QHBoxLayout()
         self.monitor_btn = QPushButton("Monitor Audio")
         self.monitor_btn.setCheckable(True)
         self.monitor_btn.setEnabled(False)
         self.monitor_btn.toggled.connect(self._toggle_monitor)
-        conn_layout.addWidget(self.monitor_btn)
+        monitor_row.addWidget(self.monitor_btn)
+
+        self._gain_label = QLabel("Gain: 1.0x")
+        self.gain_slider = QSlider(QtCore_Qt.Orientation.Horizontal)
+        self.gain_slider.setRange(10, 200)  # 1.0x to 20.0x
+        self.gain_slider.setValue(10)
+        self.gain_slider.setTickInterval(10)
+        self.gain_slider.valueChanged.connect(self._on_gain_changed)
+        monitor_row.addWidget(self._gain_label)
+        monitor_row.addWidget(self.gain_slider, stretch=1)
+        conn_layout.addLayout(monitor_row)
 
         layout.addWidget(conn_group)
 
@@ -164,6 +176,11 @@ class DevicePanel(QWidget):
         else:
             self._audio_monitor.stop()
             self.monitor_btn.setText("Monitor Audio")
+
+    def _on_gain_changed(self, value: int) -> None:
+        gain = value / 10.0
+        self._gain_label.setText(f"Gain: {gain:.1f}x")
+        self._audio_monitor.gain = gain
 
     @property
     def device(self) -> MidiDevice:

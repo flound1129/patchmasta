@@ -11,15 +11,17 @@ def generate_test_tone(freq: float, duration: float, sample_rate: int = 44100) -
 
 
 def list_audio_input_devices() -> list[tuple[int, str]]:
-    """Return (index, name) for each audio device with input channels."""
+    """Return (index, display_name) for each audio device with input channels."""
     try:
         import sounddevice as sd
         devices = sd.query_devices()
-        return [
-            (i, d["name"])
-            for i, d in enumerate(devices)
-            if d.get("max_input_channels", 0) > 0
-        ]
+        apis = sd.query_hostapis()
+        result = []
+        for i, d in enumerate(devices):
+            if d.get("max_input_channels", 0) > 0:
+                api_name = apis[d["hostapi"]]["name"]
+                result.append((i, f"{d['name']} [{api_name}]"))
+        return result
     except OSError:
         return []
 
@@ -60,10 +62,11 @@ class AudioRecorder:
 class AudioMonitor:
     """Real-time audio passthrough from input to output."""
 
-    def __init__(self, device=None, sample_rate: int = 44100) -> None:
+    def __init__(self, device=None, sample_rate: int = 44100, gain: float = 1.0) -> None:
         self._device = device
         self._sample_rate = sample_rate
         self._stream = None
+        self.gain = gain
 
     @property
     def is_running(self) -> bool:
@@ -74,8 +77,13 @@ class AudioMonitor:
             return
         import sounddevice as sd
         device = self._resolve_device_pair(sd)
+        # Use the input device's default sample rate if available
+        sample_rate = self._sample_rate
+        if self._device is not None:
+            info = sd.query_devices(self._device)
+            sample_rate = int(info["default_samplerate"])
         self._stream = sd.Stream(
-            samplerate=self._sample_rate,
+            samplerate=sample_rate,
             channels=1,
             dtype="float32",
             device=device,
@@ -101,9 +109,9 @@ class AudioMonitor:
             self._stream.close()
             self._stream = None
 
-    @staticmethod
-    def _callback(indata, outdata, frames, time, status):
-        outdata[:] = indata
+    def _callback(self, indata, outdata, frames, time, status):
+        import numpy as np
+        np.multiply(indata, self.gain, out=outdata)
 
 
 class AudioAnalyzer:
