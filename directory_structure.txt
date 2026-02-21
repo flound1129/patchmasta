@@ -1,10 +1,14 @@
 .
 ./banks
 ./build
+./build/build.bat
 ./build/build.sh
 ./build/deploy.sh
+./build/git.bat
 ./build/git.sh
+./build/run.bat
 ./build/run.sh
+./build/test.bat
 ./build/test.sh
 ./.claude
 ./.claude/settings.local.json
