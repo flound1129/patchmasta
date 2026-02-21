@@ -139,13 +139,26 @@ class AIController(QObject):
         return f"Played note {note} vel={velocity} for {duration_ms}ms"
 
     def _tool_record_audio(self, duration_s: float) -> str:
-        # Placeholder - implemented in Task 10
-        return "Audio recording not yet implemented"
+        from audio.engine import AudioRecorder
+        import tempfile
+        recorder = AudioRecorder(device=self._audio_device)
+        samples = recorder.record(duration_s)
+        path = Path(tempfile.mktemp(suffix=".wav"))
+        recorder.save_wav(samples, path)
+        self._logger.audio(f"Recorded {duration_s}s to {path}")
+        return f"Recorded to {path}"
 
     def _tool_analyze_audio(self, wav_path: str) -> str:
-        # Placeholder - implemented in Task 10
-        return "Audio analysis not yet implemented"
+        from audio.engine import AudioRecorder, AudioAnalyzer
+        samples, sr = AudioRecorder.load_wav(Path(wav_path))
+        analysis = AudioAnalyzer.analyze_samples(samples, sr)
+        self._logger.audio(f"Analyzed {wav_path}: {analysis['fundamental_hz']:.1f} Hz")
+        return str(analysis)
 
     def _tool_compare_audio(self, target_path: str, recorded_path: str) -> str:
-        # Placeholder - implemented in Task 10
-        return "Audio comparison not yet implemented"
+        from audio.engine import AudioRecorder, AudioAnalyzer
+        t_samples, t_sr = AudioRecorder.load_wav(Path(target_path))
+        r_samples, r_sr = AudioRecorder.load_wav(Path(recorded_path))
+        report = AudioAnalyzer.compare_samples(t_samples, r_samples, t_sr)
+        self._logger.audio(f"Spectral distance: {report['spectral_distance']:.4f}")
+        return str(report)

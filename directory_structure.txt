@@ -67,6 +67,7 @@
 ./tests
 ./tests/ai
 ./tests/ai/__init__.py
+./tests/ai/test_audio_tools.py
 ./tests/ai/test_controller.py
 ./tests/ai/test_llm.py
 ./tests/audio
