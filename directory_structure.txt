@@ -1,4 +1,7 @@
 .
+./ai
+./ai/__init__.py
+./ai/llm.py
 ./banks
 ./build
 ./build/build.sh
@@ -57,6 +60,9 @@
 ./requirements-dev.txt
 ./requirements.txt
 ./tests
+./tests/ai
+./tests/ai/__init__.py
+./tests/ai/test_llm.py
 ./tests/core
 ./tests/core/__init__.py
 ./tests/core/test_config.py
