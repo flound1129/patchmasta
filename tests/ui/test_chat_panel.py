@@ -26,6 +26,7 @@ def test_chat_panel_append_ai_message(app):
 
 def test_chat_panel_send_signal(app):
     panel = ChatPanel()
+    panel.set_device_connected(True)
     received = []
     panel.message_sent.connect(lambda t: received.append(t))
     panel.input_edit.setText("test message")
@@ -51,3 +52,26 @@ def test_chat_panel_thinking_preserves_prior_messages(app):
     panel.set_thinking(False)
     assert "hello" in panel.history.toPlainText()
     assert "Thinking" not in panel.history.toPlainText()
+
+
+def test_chat_panel_starts_disabled(app):
+    panel = ChatPanel()
+    assert not panel.input_edit.isEnabled()
+    assert not panel.send_btn.isEnabled()
+    assert not panel.match_btn.isEnabled()
+
+
+def test_chat_panel_device_connected_enables_input(app):
+    panel = ChatPanel()
+    panel.set_device_connected(True)
+    assert panel.input_edit.isEnabled()
+    assert panel.send_btn.isEnabled()
+
+
+def test_chat_panel_device_disconnected_disables_input(app):
+    panel = ChatPanel()
+    panel.set_device_connected(True)
+    panel.set_device_connected(False)
+    assert not panel.input_edit.isEnabled()
+    assert not panel.send_btn.isEnabled()
+    assert not panel.match_btn.isEnabled()

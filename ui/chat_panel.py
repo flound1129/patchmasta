@@ -46,6 +46,7 @@ class ChatPanel(QWidget):
         self._wav_path: str | None = None
         self._thinking_timer: QTimer | None = None
         self._thinking_phase: int = 0
+        self._device_connected: bool = False
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -86,9 +87,11 @@ class ChatPanel(QWidget):
         # Input row
         input_row = QHBoxLayout()
         self.input_edit = QLineEdit()
-        self.input_edit.setPlaceholderText("Describe the sound you want...")
+        self.input_edit.setPlaceholderText("Connect a device to start chatting")
+        self.input_edit.setEnabled(False)
         self.input_edit.returnPressed.connect(self._on_send)
         self.send_btn = QPushButton("Send")
+        self.send_btn.setEnabled(False)
         self.send_btn.clicked.connect(self._on_send)
         input_row.addWidget(self.input_edit, stretch=1)
         input_row.addWidget(self.send_btn)
@@ -107,7 +110,7 @@ class ChatPanel(QWidget):
         if path:
             self._wav_path = path
             self._wav_label.setText(path.split("/")[-1])
-            self.match_btn.setEnabled(True)
+            self.match_btn.setEnabled(self._device_connected)
             self.wav_dropped.emit(path)
 
     def _on_match(self) -> None:
@@ -127,9 +130,21 @@ class ChatPanel(QWidget):
         html = self._TOOL_BUBBLE.format(body=f"⚙ {tool}: {result}")
         self.history.append(html)
 
+    def set_device_connected(self, connected: bool) -> None:
+        self._device_connected = connected
+        self.input_edit.setEnabled(connected)
+        self.send_btn.setEnabled(connected)
+        self.match_btn.setEnabled(connected and self._wav_path is not None)
+        self.input_edit.setPlaceholderText(
+            "Describe the sound you want..."
+            if connected
+            else "Connect a device to start chatting"
+        )
+
     def set_thinking(self, thinking: bool) -> None:
-        self.send_btn.setEnabled(not thinking)
-        self.input_edit.setEnabled(not thinking)
+        can_input = self._device_connected and not thinking
+        self.send_btn.setEnabled(can_input)
+        self.input_edit.setEnabled(can_input)
         self.stop_btn.setEnabled(thinking)
 
         if thinking:

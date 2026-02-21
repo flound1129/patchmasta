@@ -151,6 +151,8 @@ class MainWindow(QMainWindow):
         self._device_panel.load_range_requested.connect(self._on_load_range)
         self._device_panel.connected.connect(lambda _: self._library_panel.set_device_connected(True))
         self._device_panel.disconnected.connect(lambda: self._library_panel.set_device_connected(False))
+        self._device_panel.connected.connect(lambda _: self._chat_panel.set_device_connected(True))
+        self._device_panel.disconnected.connect(lambda: self._chat_panel.set_device_connected(False))
         self._logger.message_logged.connect(self._log_panel.append_message)
         self._chat_panel.message_sent.connect(self._on_chat_message)
         self._chat_panel.match_requested.connect(self._on_match_sound)
