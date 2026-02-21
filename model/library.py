@@ -30,7 +30,9 @@ class Library:
         result = []
         for f in sorted(self._patches_dir.glob("*.json")):
             try:
-                result.append(Patch.load(f))
+                patch = Patch.load(f)
+                patch.source_path = f
+                result.append(patch)
             except (json.JSONDecodeError, KeyError, ValueError, OSError):
                 pass  # skip malformed or unreadable files
         return result

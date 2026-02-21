@@ -14,6 +14,7 @@ class Patch:
     notes: str = ""
     sysex_data: bytes | None = None
     created: str = field(default_factory=lambda: date.today().isoformat())
+    source_path: Path | None = field(default=None, compare=False, repr=False)
 
     def to_dict(self) -> dict:
         """Return serializable metadata dict. Does not include sysex_file; use save() to write the full JSON."""

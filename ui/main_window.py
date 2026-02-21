@@ -1,22 +1,73 @@
 from __future__ import annotations
-import time
+import threading
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout,
     QSplitter, QMessageBox, QInputDialog,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from midi.sysex import (
     build_program_dump_request, build_program_write, parse_program_dump,
 )
 from model.patch import Patch
-from model.bank import Bank
 from model.library import Library
 from ui.library_panel import LibraryPanel
 from ui.patch_detail import PatchDetailPanel
 from ui.device_panel import DevicePanel
 
 APP_ROOT = Path(__file__).parent.parent
+
+
+class PullWorker(QThread):
+    """Pulls one or more program slots from the device on a background thread."""
+    patch_ready = pyqtSignal(object)  # Patch on success, None on timeout
+    progress = pyqtSignal(int, int)   # slots_done, slots_total
+    finished = pyqtSignal()
+
+    def __init__(self, device, slots: list[int], parent=None) -> None:
+        super().__init__(parent)
+        self._device = device
+        self._slots = slots
+
+    def run(self) -> None:
+        total = len(self._slots)
+        try:
+            for i, slot in enumerate(self._slots):
+                self.progress.emit(i, total)
+                received: list[bytes] = []
+                event = threading.Event()
+
+                def on_sysex(midi_event, data=None, _recv=received, _evt=event):
+                    message, _ = midi_event
+                    parsed = parse_program_dump(list(message))
+                    if parsed is not None:
+                        _recv.append(parsed)
+                        _evt.set()
+
+                self._device.set_sysex_callback(on_sysex)
+                self._device.send(
+                    build_program_dump_request(channel=1, program=slot & 0x7F)
+                )
+                event.wait(timeout=2.0)
+
+                # Clear callback before next slot to prevent cross-slot attribution
+                try:
+                    self._device.set_sysex_callback(lambda e, d=None: None)
+                except Exception:
+                    pass
+
+                if received:
+                    self.patch_ready.emit(Patch(
+                        name=f"Program {slot + 1:03d}",
+                        program_number=slot,
+                        sysex_data=received[0],
+                    ))
+                else:
+                    self.patch_ready.emit(None)
+        except Exception:
+            pass
+        finally:
+            self.finished.emit()
 
 
 class MainWindow(QMainWindow):
@@ -26,6 +77,8 @@ class MainWindow(QMainWindow):
         self.resize(1000, 600)
         self._library = Library(root=APP_ROOT)
         self._selected_patch: Patch | None = None
+        self._selected_patch_path: Path | None = None
+        self._pull_worker: PullWorker | None = None
         self._build_ui()
         self._connect_signals()
         self._refresh_library()
@@ -46,9 +99,9 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         self._library_panel.patch_selected.connect(self._on_patch_selected)
-        self._library_panel.add_patch_requested.connect(self._on_pull_current)
+        self._library_panel.add_patch_requested.connect(self._on_pull_prompted)
         self._detail_panel.patch_saved.connect(self._on_patch_saved)
-        self._device_panel.pull_requested.connect(self._on_pull_current)
+        self._device_panel.pull_requested.connect(self._on_pull_prompted)
         self._device_panel.send_requested.connect(self._on_send_patch)
         self._device_panel.load_all_requested.connect(self._on_load_all)
         self._device_panel.load_range_requested.connect(self._on_load_range)
@@ -60,52 +113,50 @@ class MainWindow(QMainWindow):
 
     def _on_patch_selected(self, patch: Patch) -> None:
         self._selected_patch = patch
+        self._selected_patch_path = patch.source_path
         self._detail_panel.load_patch(patch)
 
     def _on_patch_saved(self, patch: Patch) -> None:
-        patches_dir = APP_ROOT / "patches"
-        for json_file in patches_dir.glob("*.json"):
-            try:
-                loaded = Patch.load(json_file)
-                if loaded.name == patch.name and loaded.program_number == patch.program_number:
-                    patch.save(json_file)
-                    break
-            except Exception:
-                pass
+        if self._selected_patch_path and self._selected_patch_path.exists():
+            patch.save(self._selected_patch_path)
+        else:
+            self._library.save_patch(patch)
         self._refresh_library()
 
-    def _pull_slot(self, slot: int) -> Patch | None:
-        device = self._device_panel.device
-        received: list[bytes] = []
-
-        def on_sysex(event, data=None):
-            message, _ = event
-            parsed = parse_program_dump(message)
-            if parsed is not None:
-                received.append(parsed)
-
-        device.set_sysex_callback(on_sysex)
-        device.send(build_program_dump_request(channel=1, program=slot))
-        time.sleep(2)
-
-        if received:
-            return Patch(
-                name=f"Program {slot + 1:03d}",
-                program_number=slot,
-                sysex_data=received[0],
-            )
-        return None
-
-    def _on_pull_current(self) -> None:
+    def _start_pull(self, slots: list[int]) -> None:
         device = self._device_panel.device
         if not device.connected:
             return
-        patch = self._pull_slot(0)
-        if patch:
+        self._set_action_buttons_enabled(False)
+        worker = PullWorker(device, slots, parent=self)
+        self._pull_worker = worker
+        worker.patch_ready.connect(self._on_patch_ready)
+        worker.finished.connect(self._on_pull_finished)
+        worker.start()
+
+    def _on_patch_ready(self, patch: object) -> None:
+        if patch is not None:
             self._library.save_patch(patch)
-            self._refresh_library()
-        else:
-            QMessageBox.warning(self, "Timeout", "No response from device within 2 seconds.")
+
+    def _on_pull_finished(self) -> None:
+        self._refresh_library()
+        self._set_action_buttons_enabled(self._device_panel.device.connected)
+
+    def _set_action_buttons_enabled(self, enabled: bool) -> None:
+        for btn in (
+            self._device_panel.send_btn,
+            self._device_panel.pull_btn,
+            self._device_panel.load_all_btn,
+            self._device_panel.load_range_btn,
+        ):
+            btn.setEnabled(enabled)
+
+    def _on_pull_prompted(self) -> None:
+        slot, ok = QInputDialog.getInt(
+            self, "Pull Program", "Slot to pull (0–127):", 0, 0, 127
+        )
+        if ok:
+            self._start_pull([slot])
 
     def _on_send_patch(self) -> None:
         if self._selected_patch is None:
@@ -116,31 +167,21 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "No SysEx data", "This patch has no SysEx data to send.")
             return
         self._device_panel.device.send(
-            build_program_write(channel=1, program=patch.program_number, data=patch.sysex_data)
+            build_program_write(channel=1, data=patch.sysex_data)
         )
 
     def _on_load_all(self) -> None:
-        device = self._device_panel.device
-        if not device.connected:
-            return
-        for slot in range(200):
-            patch = self._pull_slot(slot)
-            if patch:
-                self._library.save_patch(patch)
-        self._refresh_library()
+        self._start_pull(list(range(128)))
 
     def _on_load_range(self) -> None:
-        start, ok1 = QInputDialog.getInt(self, "Load Slot Range", "Start slot (0-127):", 0, 0, 127)
+        start, ok1 = QInputDialog.getInt(
+            self, "Load Slot Range", "Start slot (0–127):", 0, 0, 127
+        )
         if not ok1:
             return
-        end, ok2 = QInputDialog.getInt(self, "Load Slot Range", "End slot (0-127):", 40, start, 127)
+        end, ok2 = QInputDialog.getInt(
+            self, "Load Slot Range", "End slot (0–127):", min(start + 40, 127), start, 127
+        )
         if not ok2:
             return
-        device = self._device_panel.device
-        if not device.connected:
-            return
-        for slot in range(start, end + 1):
-            patch = self._pull_slot(slot)
-            if patch:
-                self._library.save_patch(patch)
-        self._refresh_library()
+        self._start_pull(list(range(start, end + 1)))
