@@ -37,10 +37,12 @@ class MidiDevice:
         if self._connected:
             self.disconnect()
         self._midi_out.open_port(port_index)
+        print(f"[MIDI] OUT: {port_name} (index {port_index})", flush=True)
         try:
             # Input and output port indices are independent on Windows —
             # find the input port by name rather than assuming the same index.
             in_ports = self._midi_in.get_ports()
+            print(f"[MIDI] available IN ports: {in_ports}", flush=True)
             in_index = next(
                 (i for i, n in enumerate(in_ports) if DEVICE_NAME_FRAGMENT in n),
                 None,
@@ -48,6 +50,12 @@ class MidiDevice:
             if in_index is None:
                 raise RuntimeError(f"No MIDI input port found matching '{DEVICE_NAME_FRAGMENT}'")
             self._midi_in.open_port(in_index)
+            print(f"[MIDI] IN:  {in_ports[in_index]} (index {in_index})", flush=True)
+            # Catch-all debug listener — logs every incoming message until replaced
+            self._midi_in.ignore_types(sysex=False)
+            self._midi_in.set_callback(
+                lambda ev, _=None: print(f"[RX raw] {[hex(b) for b in ev[0]]}", flush=True)
+            )
         except Exception:
             self._midi_out.close_port()
             raise
