@@ -24,7 +24,9 @@
 ./midi/__init__.py
 ./midi/sysex.py
 ./model
+./model/bank.py
 ./model/__init__.py
+./model/patch.py
 ./patches
 ./.pytest_cache
 ./.pytest_cache/CACHEDIR.TAG
@@ -44,6 +46,8 @@
 ./tests/midi/test_sysex.py
 ./tests/model
 ./tests/model/__init__.py
+./tests/model/test_bank.py
+./tests/model/test_patch.py
 ./tests/ui
 ./tests/ui/__init__.py
 ./ui
