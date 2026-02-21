@@ -27,11 +27,12 @@ class LibraryPanel(QWidget):
 
         btn_row = QHBoxLayout()
         add_bank_btn = QPushButton("+ Bank")
-        add_patch_btn = QPushButton("+ Patch from Device")
+        self._add_patch_btn = QPushButton("+ Patch from Device")
+        self._add_patch_btn.setEnabled(False)
         add_bank_btn.clicked.connect(self.add_bank_requested)
-        add_patch_btn.clicked.connect(self.add_patch_requested)
+        self._add_patch_btn.clicked.connect(self.add_patch_requested)
         btn_row.addWidget(add_bank_btn)
-        btn_row.addWidget(add_patch_btn)
+        btn_row.addWidget(self._add_patch_btn)
         layout.addLayout(btn_row)
 
     def populate(self, banks: list[Bank], patches: list[Patch]) -> None:
@@ -51,6 +52,9 @@ class LibraryPanel(QWidget):
                 child.setData(0, Qt.ItemDataRole.UserRole, patch)
                 loose.addChild(child)
             loose.setExpanded(True)
+
+    def set_device_connected(self, connected: bool) -> None:
+        self._add_patch_btn.setEnabled(connected)
 
     def _on_item_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         data = item.data(0, Qt.ItemDataRole.UserRole)

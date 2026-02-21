@@ -115,6 +115,8 @@ class MainWindow(QMainWindow):
         self._device_panel.send_requested.connect(self._on_send_patch)
         self._device_panel.load_all_requested.connect(self._on_load_all)
         self._device_panel.load_range_requested.connect(self._on_load_range)
+        self._device_panel.connected.connect(lambda _: self._library_panel.set_device_connected(True))
+        self._device_panel.disconnected.connect(lambda: self._library_panel.set_device_connected(False))
 
     def _refresh_library(self) -> None:
         banks = self._library.list_banks()
