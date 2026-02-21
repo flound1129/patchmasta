@@ -81,6 +81,32 @@ class MidiDevice:
             raise RuntimeError("Not connected to a MIDI device")
         self._midi_out.send_message(message)
 
+    def send_nrpn(self, channel: int, msb: int, lsb: int, value: int) -> None:
+        if not self._connected:
+            raise RuntimeError("Not connected to a MIDI device")
+        ch = 0xB0 | ((channel - 1) & 0x0F)
+        self._midi_out.send_message([ch, 99, msb & 0x7F])
+        self._midi_out.send_message([ch, 98, lsb & 0x7F])
+        self._midi_out.send_message([ch, 6, value & 0x7F])
+
+    def send_cc(self, channel: int, cc: int, value: int) -> None:
+        if not self._connected:
+            raise RuntimeError("Not connected to a MIDI device")
+        ch = 0xB0 | ((channel - 1) & 0x0F)
+        self._midi_out.send_message([ch, cc & 0x7F, value & 0x7F])
+
+    def send_note_on(self, channel: int, note: int, velocity: int) -> None:
+        if not self._connected:
+            raise RuntimeError("Not connected to a MIDI device")
+        ch = 0x90 | ((channel - 1) & 0x0F)
+        self._midi_out.send_message([ch, note & 0x7F, velocity & 0x7F])
+
+    def send_note_off(self, channel: int, note: int) -> None:
+        if not self._connected:
+            raise RuntimeError("Not connected to a MIDI device")
+        ch = 0x80 | ((channel - 1) & 0x0F)
+        self._midi_out.send_message([ch, note & 0x7F, 0])
+
     def set_sysex_callback(self, callback) -> None:
         if not self._connected:
             raise RuntimeError("Not connected to a MIDI device")

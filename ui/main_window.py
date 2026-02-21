@@ -10,7 +10,7 @@ import time
 from core.logger import AppLogger
 from midi.sysex import (
     build_program_change, build_program_dump_request,
-    build_program_write, parse_program_dump,
+    build_program_write, parse_program_dump, extract_patch_name,
 )
 from model.patch import Patch
 from model.library import Library
@@ -77,8 +77,9 @@ class PullWorker(QThread):
 
                 if received:
                     received_count += 1
+                    name = extract_patch_name(received[0]) or f"Program {slot + 1:03d}"
                     self.patch_ready.emit(Patch(
-                        name=f"Program {slot + 1:03d}",
+                        name=name,
                         program_number=slot,
                         sysex_data=received[0],
                     ))
