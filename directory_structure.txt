@@ -29,6 +29,14 @@
 ./model/library.py
 ./model/patch.py
 ./patches
+./patchmasta.egg-info
+./patchmasta.egg-info/dependency_links.txt
+./patchmasta.egg-info/entry_points.txt
+./patchmasta.egg-info/PKG-INFO
+./patchmasta.egg-info/requires.txt
+./patchmasta.egg-info/SOURCES.txt
+./patchmasta.egg-info/top_level.txt
+./pyproject.toml
 ./.pytest_cache
 ./.pytest_cache/CACHEDIR.TAG
 ./.pytest_cache/.gitignore

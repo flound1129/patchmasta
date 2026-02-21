@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "patchmasta"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt6>=6.6.0",
+    "python-rtmidi>=1.5.8",
+]
+
+[project.scripts]
+patchmasta = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+packages = ["midi", "model", "ui"]
