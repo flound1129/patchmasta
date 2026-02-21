@@ -43,6 +43,42 @@ class AudioRecorder:
         return data, sr
 
 
+class AudioMonitor:
+    """Real-time audio passthrough from input to output."""
+
+    def __init__(self, device=None, sample_rate: int = 44100) -> None:
+        self._device = device
+        self._sample_rate = sample_rate
+        self._stream = None
+
+    @property
+    def is_running(self) -> bool:
+        return self._stream is not None and self._stream.active
+
+    def start(self) -> None:
+        if self.is_running:
+            return
+        import sounddevice as sd
+        self._stream = sd.Stream(
+            samplerate=self._sample_rate,
+            channels=1,
+            dtype="float32",
+            device=self._device,
+            callback=self._callback,
+        )
+        self._stream.start()
+
+    def stop(self) -> None:
+        if self._stream is not None:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None
+
+    @staticmethod
+    def _callback(indata, outdata, frames, time, status):
+        outdata[:] = indata
+
+
 class AudioAnalyzer:
     """Spectral analysis of audio samples."""
 

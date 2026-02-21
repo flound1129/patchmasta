@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal
 from midi.device import MidiDevice, list_midi_ports, find_rk100s2_port
+from audio.engine import AudioMonitor
 
 
 class DevicePanel(QWidget):
@@ -18,6 +19,7 @@ class DevicePanel(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._device = MidiDevice()
+        self._audio_monitor = AudioMonitor()
         self._build_ui()
         self._refresh_ports()
 
@@ -41,6 +43,13 @@ class DevicePanel(QWidget):
 
         self.status_label = QLabel("Not connected")
         conn_layout.addWidget(self.status_label)
+
+        self.monitor_btn = QPushButton("Monitor Audio")
+        self.monitor_btn.setCheckable(True)
+        self.monitor_btn.setEnabled(False)
+        self.monitor_btn.toggled.connect(self._toggle_monitor)
+        conn_layout.addWidget(self.monitor_btn)
+
         layout.addWidget(conn_group)
 
         action_group = QGroupBox("Actions")
@@ -98,11 +107,23 @@ class DevicePanel(QWidget):
         if state:
             self.connect_btn.setText("Disconnect")
             self.status_label.setText(f"Connected: {self._device.port_name}")
+            self.monitor_btn.setEnabled(True)
             self.connected.emit(self._device.port_name or "")
         else:
+            self._audio_monitor.stop()
+            self.monitor_btn.setChecked(False)
+            self.monitor_btn.setEnabled(False)
             self.connect_btn.setText("Connect")
             self.status_label.setText("Not connected")
             self.disconnected.emit()
+
+    def _toggle_monitor(self, checked: bool) -> None:
+        if checked:
+            self._audio_monitor.start()
+            self.monitor_btn.setText("Stop Monitor")
+        else:
+            self._audio_monitor.stop()
+            self.monitor_btn.setText("Monitor Audio")
 
     @property
     def device(self) -> MidiDevice:
