@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal
 from midi.device import MidiDevice, list_midi_ports, find_rk100s2_port
-from audio.engine import AudioMonitor
+from audio.engine import AudioMonitor, list_audio_input_devices
+from core.config import AppConfig
 
 
 class DevicePanel(QWidget):
@@ -16,12 +17,14 @@ class DevicePanel(QWidget):
     load_all_requested = pyqtSignal()
     load_range_requested = pyqtSignal()
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, config: AppConfig | None = None, parent=None) -> None:
         super().__init__(parent)
+        self._config = config or AppConfig()
         self._device = MidiDevice()
-        self._audio_monitor = AudioMonitor()
+        self._audio_monitor = AudioMonitor(device=self._config.audio_input_device)
         self._build_ui()
         self._refresh_ports()
+        self._refresh_audio_devices()
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -31,7 +34,7 @@ class DevicePanel(QWidget):
 
         self.port_combo = QComboBox()
         refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self._refresh_ports)
+        refresh_btn.clicked.connect(self._on_refresh)
         port_row = QHBoxLayout()
         port_row.addWidget(self.port_combo)
         port_row.addWidget(refresh_btn)
@@ -43,6 +46,13 @@ class DevicePanel(QWidget):
 
         self.status_label = QLabel("Not connected")
         conn_layout.addWidget(self.status_label)
+
+        audio_row = QHBoxLayout()
+        audio_row.addWidget(QLabel("Audio Input:"))
+        self.audio_device_combo = QComboBox()
+        self.audio_device_combo.currentIndexChanged.connect(self._on_audio_device_changed)
+        audio_row.addWidget(self.audio_device_combo, stretch=1)
+        conn_layout.addLayout(audio_row)
 
         self.monitor_btn = QPushButton("Monitor Audio")
         self.monitor_btn.setCheckable(True)
@@ -78,6 +88,10 @@ class DevicePanel(QWidget):
         layout.addWidget(action_group)
         layout.addStretch()
 
+    def _on_refresh(self) -> None:
+        self._refresh_ports()
+        self._refresh_audio_devices()
+
     def _refresh_ports(self) -> None:
         self.port_combo.clear()
         ports = list_midi_ports()
@@ -86,6 +100,30 @@ class DevicePanel(QWidget):
         idx = find_rk100s2_port(ports)
         if idx is not None:
             self.port_combo.setCurrentIndex(idx)
+
+    def _refresh_audio_devices(self) -> None:
+        self.audio_device_combo.blockSignals(True)
+        self.audio_device_combo.clear()
+        self.audio_device_combo.addItem("(default)", None)
+        saved = self._config.audio_input_device
+        select = 0
+        for dev_index, name in list_audio_input_devices():
+            self.audio_device_combo.addItem(name, dev_index)
+            if saved is not None and name == saved:
+                select = self.audio_device_combo.count() - 1
+        self.audio_device_combo.setCurrentIndex(select)
+        self.audio_device_combo.blockSignals(False)
+
+    def _on_audio_device_changed(self, idx: int) -> None:
+        dev_index = self.audio_device_combo.currentData()
+        dev_name = self.audio_device_combo.currentText() if dev_index is not None else None
+        self._config.audio_input_device = dev_name if dev_index is not None else None
+        self._config.save()
+        was_running = self._audio_monitor.is_running
+        self._audio_monitor.stop()
+        self._audio_monitor = AudioMonitor(device=dev_index)
+        if was_running:
+            self._audio_monitor.start()
 
     def _toggle_connect(self) -> None:
         if self._device.connected:

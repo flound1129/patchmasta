@@ -40,3 +40,22 @@ def test_monitor_btn_disabled_on_disconnect(app):
         panel._set_connected(False)
         assert not panel.monitor_btn.isEnabled()
         assert not panel.monitor_btn.isChecked()
+
+def test_audio_device_combo_exists_with_default(app):
+    with patch("midi.device.rtmidi"), \
+         patch("ui.device_panel.list_audio_input_devices", return_value=[]):
+        from ui.device_panel import DevicePanel
+        panel = DevicePanel()
+        assert hasattr(panel, "audio_device_combo")
+        assert panel.audio_device_combo.count() >= 1
+        assert panel.audio_device_combo.itemText(0) == "(default)"
+
+def test_audio_device_combo_shows_devices(app):
+    fake_devices = [(0, "Built-in Mic"), (2, "USB Audio")]
+    with patch("midi.device.rtmidi"), \
+         patch("ui.device_panel.list_audio_input_devices", return_value=fake_devices):
+        from ui.device_panel import DevicePanel
+        panel = DevicePanel()
+        assert panel.audio_device_combo.count() == 3
+        assert panel.audio_device_combo.itemText(1) == "Built-in Mic"
+        assert panel.audio_device_combo.itemText(2) == "USB Audio"

@@ -10,6 +10,20 @@ def generate_test_tone(freq: float, duration: float, sample_rate: int = 44100) -
     return np.sin(2 * np.pi * freq * t).astype(np.float32)
 
 
+def list_audio_input_devices() -> list[tuple[int, str]]:
+    """Return (index, name) for each audio device with input channels."""
+    try:
+        import sounddevice as sd
+        devices = sd.query_devices()
+        return [
+            (i, d["name"])
+            for i, d in enumerate(devices)
+            if d.get("max_input_channels", 0) > 0
+        ]
+    except OSError:
+        return []
+
+
 class AudioRecorder:
     """Records audio from an input device."""
 

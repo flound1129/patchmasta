@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QComboBox, QDialogButtonBox,
-)
+)  # noqa: F401 — QLineEdit still used by key fields
 from core.config import AppConfig
 
 
@@ -30,10 +30,6 @@ class SettingsDialog(QDialog):
         self.groq_key_edit.setPlaceholderText("gsk_...")
         layout.addRow("Groq API Key:", self.groq_key_edit)
 
-        self.audio_device_edit = QLineEdit()
-        self.audio_device_edit.setPlaceholderText("(default)")
-        layout.addRow("Audio Input Device:", self.audio_device_edit)
-
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -47,13 +43,10 @@ class SettingsDialog(QDialog):
             self.backend_combo.setCurrentIndex(idx)
         self.claude_key_edit.setText(self._config.claude_api_key)
         self.groq_key_edit.setText(self._config.groq_api_key)
-        self.audio_device_edit.setText(self._config.audio_input_device or "")
 
     def _on_accept(self) -> None:
         self._config.ai_backend = self.backend_combo.currentText()
         self._config.claude_api_key = self.claude_key_edit.text()
         self._config.groq_api_key = self.groq_key_edit.text()
-        device = self.audio_device_edit.text().strip()
-        self._config.audio_input_device = device if device else None
         self._config.save()
         self.accept()

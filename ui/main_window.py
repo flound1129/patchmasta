@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
         self._chat_panel = ChatPanel()
         self._settings_btn = QPushButton("Settings")
         self._chat_panel.layout().itemAt(0).layout().addWidget(self._settings_btn)
-        self._device_panel = DevicePanel()
+        self._device_panel = DevicePanel(config=self._config)
         h_splitter.addWidget(self._library_panel)
         h_splitter.addWidget(self._detail_panel)
         h_splitter.addWidget(self._chat_panel)
