@@ -6,8 +6,10 @@ from PyQt6.QtWidgets import (
     QSplitter, QMessageBox, QInputDialog, QProgressDialog,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+import time
 from midi.sysex import (
-    build_program_dump_request, build_program_write, parse_program_dump,
+    build_program_change, build_program_dump_request,
+    build_program_write, parse_program_dump,
 )
 from model.patch import Patch
 from model.library import Library
@@ -52,12 +54,17 @@ class PullWorker(QThread):
                         _recv.append(parsed)
                         _evt.set()
 
-                msg = build_program_dump_request(channel=1, program=slot & 0x7F)
+                # Select the program slot, then request a dump of the current program
+                pc_msg = build_program_change(channel=1, program=slot & 0x7F)
+                self._device.send(pc_msg)
+                time.sleep(0.05)  # let the device switch programs
+
+                msg = build_program_dump_request(channel=1)
                 if i == 0:
-                    print(f"[TX] slot {slot}: {[hex(b) for b in msg]}", flush=True)
+                    print(f"[TX] slot {slot}: pc={[hex(b) for b in pc_msg]} dump={[hex(b) for b in msg]}", flush=True)
                 self._device.set_sysex_callback(on_sysex)
                 self._device.send(msg)
-                event.wait(timeout=0.5)
+                event.wait(timeout=2.0)
 
                 # Clear callback before next slot to prevent cross-slot attribution
                 try:

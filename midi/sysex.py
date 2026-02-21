@@ -17,9 +17,17 @@ def _channel_byte(channel: int) -> int:
     return 0x30 + (channel - 1)
 
 
-def build_program_dump_request(channel: int, program: int) -> list[int]:
+def build_program_change(channel: int, program: int) -> list[int]:
+    """Standard MIDI Program Change message (not SysEx)."""
+    if not (1 <= channel <= 16):
+        raise ValueError(f"MIDI channel must be 1-16, got {channel}")
+    return [0xC0 | (channel - 1), program & 0x7F]
+
+
+def build_program_dump_request(channel: int) -> list[int]:
+    """Request dump of the currently loaded program (no program number)."""
     return [0xF0, KORG_ID, _channel_byte(channel), *MODEL_ID,
-            FUNC_PROGRAM_DUMP_REQUEST, program & 0x7F, 0xF7]
+            FUNC_PROGRAM_DUMP_REQUEST, 0xF7]
 
 
 def build_all_dump_request(channel: int) -> list[int]:

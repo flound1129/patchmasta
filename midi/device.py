@@ -12,6 +12,11 @@ def list_midi_ports() -> list[str]:
 
 
 def find_rk100s2_port(ports: list[str]) -> int | None:
+    # Prefer the SOUND port — that's the internal synth, which handles SysEx dumps
+    for i, name in enumerate(ports):
+        if DEVICE_NAME_FRAGMENT in name and "SOUND" in name:
+            return i
+    # Fall back to any port matching the device name
     for i, name in enumerate(ports):
         if DEVICE_NAME_FRAGMENT in name:
             return i
