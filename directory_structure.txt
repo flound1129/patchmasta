@@ -21,6 +21,7 @@
 ./core/config.py
 ./core/__init__.py
 ./core/logger.py
+./core/theme.py
 ./directory_structure.txt
 ./docs
 ./docs/build.md
@@ -80,6 +81,7 @@
 ./tests/core/__init__.py
 ./tests/core/test_config.py
 ./tests/core/test_logger.py
+./tests/core/test_theme.py
 ./tests/__init__.py
 ./tests/midi
 ./tests/midi/__init__.py

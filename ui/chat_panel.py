@@ -8,6 +8,8 @@ from PyQt6.QtGui import QFont, QTextCursor
 
 import markdown
 
+from core.theme import get_theme
+
 
 class ChatPanel(QWidget):
     message_sent = pyqtSignal(str)
@@ -15,34 +17,11 @@ class ChatPanel(QWidget):
     match_requested = pyqtSignal(str)  # wav file path
     stop_requested = pyqtSignal()
 
-    _USER_BUBBLE = (
-        '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;">'
-        '<tr><td width="25%"></td>'
-        '<td style="background-color:#2563eb; color:#ffffff; padding:8px 12px;">'
-        "{body}</td></tr></table>"
-    )
-
-    _AI_BUBBLE = (
-        '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;">'
-        "<tr>"
-        '<td style="background-color:#374151; color:#e5e7eb; padding:8px 12px;">'
-        "{body}</td>"
-        '<td width="10%"></td></tr></table>'
-    )
-
-    _TOOL_BUBBLE = (
-        '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:2px;">'
-        "<tr>"
-        '<td style="background-color:#1f2937; color:#9ca3af; padding:4px 12px;'
-        ' font-style:italic; font-size:small;">'
-        "{body}</td>"
-        '<td width="10%"></td></tr></table>'
-    )
-
     _THINKING_TEXTS = ["Thinking.", "Thinking..", "Thinking..."]
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self._theme_name: str = "auto"
         self._wav_path: str | None = None
         self._thinking_timer: QTimer | None = None
         self._thinking_phase: int = 0
@@ -117,18 +96,49 @@ class ChatPanel(QWidget):
         if self._wav_path:
             self.match_requested.emit(self._wav_path)
 
+    def set_theme(self, name: str) -> None:
+        """Store theme name so new messages use its bubble colors."""
+        self._theme_name = name
+
+    def _user_bubble_html(self, body: str) -> str:
+        c = get_theme(self._theme_name)
+        return (
+            '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;">'
+            '<tr><td width="25%"></td>'
+            f'<td style="background-color:{c.user_bubble_bg}; color:{c.user_bubble_text}; padding:8px 12px;">'
+            f"{body}</td></tr></table>"
+        )
+
+    def _ai_bubble_html(self, body: str) -> str:
+        c = get_theme(self._theme_name)
+        return (
+            '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;">'
+            "<tr>"
+            f'<td style="background-color:{c.ai_bubble_bg}; color:{c.ai_bubble_text}; padding:8px 12px;">'
+            f"{body}</td>"
+            '<td width="10%"></td></tr></table>'
+        )
+
+    def _tool_bubble_html(self, body: str) -> str:
+        c = get_theme(self._theme_name)
+        return (
+            '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:2px;">'
+            "<tr>"
+            f'<td style="background-color:{c.tool_bubble_bg}; color:{c.tool_bubble_text}; padding:4px 12px;'
+            ' font-style:italic; font-size:small;">'
+            f"{body}</td>"
+            '<td width="10%"></td></tr></table>'
+        )
+
     def append_user_message(self, text: str) -> None:
-        html = self._USER_BUBBLE.format(body=text)
-        self.history.append(html)
+        self.history.append(self._user_bubble_html(text))
 
     def append_ai_message(self, text: str) -> None:
         body = markdown.markdown(text, extensions=["fenced_code"])
-        html = self._AI_BUBBLE.format(body=body)
-        self.history.append(html)
+        self.history.append(self._ai_bubble_html(body))
 
     def append_tool_message(self, tool: str, result: str) -> None:
-        html = self._TOOL_BUBBLE.format(body=f"⚙ {tool}: {result}")
-        self.history.append(html)
+        self.history.append(self._tool_bubble_html(f"⚙ {tool}: {result}"))
 
     def set_device_connected(self, connected: bool) -> None:
         self._device_connected = connected
@@ -149,7 +159,7 @@ class ChatPanel(QWidget):
 
         if thinking:
             self._thinking_phase = 0
-            html = self._AI_BUBBLE.format(body=self._THINKING_TEXTS[0])
+            html = self._ai_bubble_html(self._THINKING_TEXTS[0])
             self.history.append(html)
             self._thinking_timer = QTimer(self)
             self._thinking_timer.setInterval(500)
@@ -166,7 +176,7 @@ class ChatPanel(QWidget):
         new_text = self._THINKING_TEXTS[self._thinking_phase]
         # Replace content of the last block
         self._remove_last_block()
-        html = self._AI_BUBBLE.format(body=new_text)
+        html = self._ai_bubble_html(new_text)
         self.history.append(html)
 
     def _remove_last_block(self) -> None:

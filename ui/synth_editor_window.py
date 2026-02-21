@@ -1,6 +1,6 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout, QSplitter, QMessageBox, QPushButton,
+    QApplication, QMainWindow, QWidget, QHBoxLayout, QSplitter, QMessageBox, QPushButton,
 )
 from PyQt6.QtCore import Qt
 from ui.chat_panel import ChatPanel
@@ -11,6 +11,7 @@ from ai.llm import ClaudeBackend, GroqBackend
 from midi.params import ParamMap
 from core.config import AppConfig
 from core.logger import AppLogger
+from core.theme import apply_theme
 
 
 class SynthEditorWindow(QMainWindow):
@@ -102,6 +103,11 @@ class SynthEditorWindow(QMainWindow):
             idx = self._chat_panel.backend_combo.findText(backend_label)
             if idx >= 0:
                 self._chat_panel.backend_combo.setCurrentIndex(idx)
+            # Apply new theme
+            app = QApplication.instance()
+            if app is not None:
+                apply_theme(app, self._config.theme)
+            self._chat_panel.set_theme(self._config.theme)
 
     def _get_or_create_ai_controller(self) -> AIController | None:
         if self._ai_controller is not None:

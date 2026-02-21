@@ -2,6 +2,8 @@ import signal
 import sys
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
+from core.config import AppConfig
+from core.theme import apply_theme, connect_system_theme_changed
 from ui.main_window import MainWindow
 
 
@@ -11,6 +13,11 @@ def main():
     font = app.font()
     font.setPointSize(13)
     app.setFont(font)
+
+    # Apply theme before creating any windows
+    config = AppConfig()
+    apply_theme(app, config.theme)
+    connect_system_theme_changed(app, config)
 
     # Let Ctrl+C shut down cleanly. Qt's event loop blocks Python's signal
     # handling, so a timer ticks periodically to give Python a chance to run.
