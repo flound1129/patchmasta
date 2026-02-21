@@ -17,6 +17,7 @@ from model.library import Library
 from ui.library_panel import LibraryPanel
 from ui.patch_detail import PatchDetailPanel
 from ui.device_panel import DevicePanel
+from ui.log_panel import LogPanel
 
 APP_ROOT = Path(__file__).parent.parent
 
@@ -107,15 +108,24 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         layout = QHBoxLayout(central)
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        h_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._library_panel = LibraryPanel()
         self._detail_panel = PatchDetailPanel()
         self._device_panel = DevicePanel()
-        splitter.addWidget(self._library_panel)
-        splitter.addWidget(self._detail_panel)
-        splitter.addWidget(self._device_panel)
-        splitter.setSizes([250, 450, 300])
-        layout.addWidget(splitter)
+        h_splitter.addWidget(self._library_panel)
+        h_splitter.addWidget(self._detail_panel)
+        h_splitter.addWidget(self._device_panel)
+        h_splitter.setSizes([250, 450, 300])
+
+        self._log_panel = LogPanel()
+
+        v_splitter = QSplitter(Qt.Orientation.Vertical)
+        v_splitter.addWidget(h_splitter)
+        v_splitter.addWidget(self._log_panel)
+        v_splitter.setSizes([720, 180])
+
+        layout.addWidget(v_splitter)
 
     def _connect_signals(self) -> None:
         self._library_panel.patch_selected.connect(self._on_patch_selected)
@@ -127,6 +137,7 @@ class MainWindow(QMainWindow):
         self._device_panel.load_range_requested.connect(self._on_load_range)
         self._device_panel.connected.connect(lambda _: self._library_panel.set_device_connected(True))
         self._device_panel.disconnected.connect(lambda: self._library_panel.set_device_connected(False))
+        self._logger.message_logged.connect(self._log_panel.append_message)
 
     def _refresh_library(self) -> None:
         banks = self._library.list_banks()
