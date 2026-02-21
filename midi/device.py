@@ -7,7 +7,6 @@ DEVICE_NAME_FRAGMENT = "RK-100S"
 def list_midi_ports() -> list[str]:
     midi_out = rtmidi.MidiOut()
     ports = midi_out.get_ports()
-    midi_out.close_port()
     del midi_out
     return ports
 
@@ -38,7 +37,11 @@ class MidiDevice:
         if self._connected:
             self.disconnect()
         self._midi_out.open_port(port_index)
-        self._midi_in.open_port(port_index)
+        try:
+            self._midi_in.open_port(port_index)
+        except Exception:
+            self._midi_out.close_port()
+            raise
         self._connected = True
         self._port_name = port_name
 
@@ -55,5 +58,7 @@ class MidiDevice:
         self._midi_out.send_message(message)
 
     def set_sysex_callback(self, callback) -> None:
+        if not self._connected:
+            raise RuntimeError("Not connected to a MIDI device")
         self._midi_in.ignore_types(sysex=False)
         self._midi_in.set_callback(callback)
