@@ -18,7 +18,7 @@ case "$1" in
         shift
         update_directory_structure
         git add -A
-        git commit -m "$@"
+        git commit -m "$*"
         ;;
     *)
         echo "Usage: build/git.sh commit <message>"

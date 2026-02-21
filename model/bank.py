@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 from pathlib import Path
 
 
@@ -32,10 +33,12 @@ class Bank:
         d = json.loads(path.read_text())
         bank = cls(name=d["name"])
         for entry in d.get("slots", []):
-            bank.assign(int(entry["slot"]), Path(entry["patch_file"]))
+            patch_path = Path(entry["patch_file"])
+            if patch_path.is_absolute() or ".." in patch_path.parts:
+                continue  # skip unsafe paths silently
+            bank.assign(int(entry["slot"]), patch_path)
         return bank
 
     @property
     def slug(self) -> str:
-        import re
-        return re.sub(r"[^\w-]", "-", self.name.lower()).strip("-")
+        return re.sub(r"[^\w-]", "-", self.name.lower()).strip("-") or "bank"

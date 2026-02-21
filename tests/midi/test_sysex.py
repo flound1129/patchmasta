@@ -30,7 +30,7 @@ def test_parse_program_dump_rejects_non_korg():
 
 def test_build_program_write_structure():
     data = bytes([0x01, 0x02, 0x03])
-    msg = build_program_write(channel=1, program=0, data=data)
+    msg = build_program_write(channel=1, data=data)
     assert msg[0] == 0xF0
     assert msg[1] == 0x42
     assert msg[-1] == 0xF7

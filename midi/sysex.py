@@ -33,7 +33,7 @@ def parse_program_dump(message: list[int]) -> bytes | None:
         return None
     if message[0] != 0xF0 or message[1] != KORG_ID:
         return None
-    if message[3:3 + _MODEL_ID_LEN] != MODEL_ID:
+    if list(message[3:3 + _MODEL_ID_LEN]) != MODEL_ID:
         return None
     func_idx = 3 + _MODEL_ID_LEN
     if message[func_idx] != FUNC_PROGRAM_DUMP:
@@ -43,7 +43,8 @@ def parse_program_dump(message: list[int]) -> bytes | None:
     return bytes(message[func_idx + 1:-1])
 
 
-def build_program_write(channel: int, program: int, data: bytes) -> list[int]:
+def build_program_write(channel: int, data: bytes) -> list[int]:
+    # TODO: verify write format against Parameter Guide before device testing
     return ([0xF0, KORG_ID, _channel_byte(channel), *MODEL_ID,
-             FUNC_PROGRAM_DUMP, program & 0x7F]
+             FUNC_PROGRAM_DUMP]
             + list(data) + [0xF7])

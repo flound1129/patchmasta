@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import date
@@ -39,8 +40,9 @@ class Patch:
         d = json.loads(json_path.read_text())
         sysex_data = None
         if d.get("sysex_file"):
-            syx_path = json_path.parent / d["sysex_file"]
-            if syx_path.exists():
+            syx_path = (json_path.parent / d["sysex_file"]).resolve()
+            patch_dir = json_path.parent.resolve()
+            if syx_path.is_relative_to(patch_dir) and syx_path.exists():
                 sysex_data = syx_path.read_bytes()
         if "name" not in d:
             raise ValueError(f"Patch JSON missing required 'name' field: {json_path}")
@@ -55,5 +57,4 @@ class Patch:
 
     @property
     def slug(self) -> str:
-        import re
-        return re.sub(r"[^\w-]", "-", self.name.lower()).strip("-")
+        return re.sub(r"[^\w-]", "-", self.name.lower()).strip("-") or "patch"

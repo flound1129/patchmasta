@@ -7,7 +7,7 @@ DEVICE_NAME_FRAGMENT = "RK-100S"
 def list_midi_ports() -> list[str]:
     midi_out = rtmidi.MidiOut()
     ports = midi_out.get_ports()
-    del midi_out
+    midi_out.delete()
     return ports
 
 

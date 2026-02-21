@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QComboBox, QGroupBox,
+    QPushButton, QComboBox, QGroupBox, QMessageBox,
 )
 from PyQt6.QtCore import pyqtSignal
 from midi.device import MidiDevice, list_midi_ports, find_rk100s2_port
@@ -86,8 +86,11 @@ class DevicePanel(QWidget):
             idx = self.port_combo.currentIndex()
             name = self.port_combo.currentText()
             if idx >= 0:
-                self._device.connect(idx, name)
-                self._set_connected(True)
+                try:
+                    self._device.connect(idx, name)
+                    self._set_connected(True)
+                except Exception as exc:
+                    QMessageBox.critical(self, "Connection Failed", str(exc))
 
     def _set_connected(self, state: bool) -> None:
         for btn in (self.send_btn, self.pull_btn, self.load_all_btn, self.load_range_btn):
@@ -95,7 +98,7 @@ class DevicePanel(QWidget):
         if state:
             self.connect_btn.setText("Disconnect")
             self.status_label.setText(f"Connected: {self._device.port_name}")
-            self.connected.emit(self._device.port_name)
+            self.connected.emit(self._device.port_name or "")
         else:
             self.connect_btn.setText("Connect")
             self.status_label.setText("Not connected")
