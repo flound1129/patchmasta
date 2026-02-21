@@ -76,31 +76,40 @@ class AudioMonitor:
         if self.is_running:
             return
         import sounddevice as sd
-        device = self._resolve_device_pair(sd)
+        from sounddevice import PortAudioError
         # Use the input device's default sample rate if available
         sample_rate = self._sample_rate
         if self._device is not None:
             info = sd.query_devices(self._device)
             sample_rate = int(info["default_samplerate"])
-        self._stream = sd.Stream(
-            samplerate=sample_rate,
-            channels=1,
-            dtype="float32",
-            device=device,
-            callback=self._callback,
-        )
+        device = (self._device, None) if self._device is not None else None
+        try:
+            self._stream = sd.Stream(
+                samplerate=sample_rate,
+                channels=1,
+                dtype="float32",
+                device=device,
+                callback=self._callback,
+            )
+        except PortAudioError:
+            # Cross-API pairing failed; find output on same host API
+            device = self._same_api_output(sd)
+            self._stream = sd.Stream(
+                samplerate=sample_rate,
+                channels=1,
+                dtype="float32",
+                device=device,
+                callback=self._callback,
+            )
         self._stream.start()
 
-    def _resolve_device_pair(self, sd):
-        if self._device is None:
-            return None
+    def _same_api_output(self, sd):
+        """Find the default output device on the same host API as the input."""
         in_info = sd.query_devices(self._device)
-        in_api = in_info["hostapi"]
-        # Find an output device on the same host API
-        for i, dev in enumerate(sd.query_devices()):
-            if dev["hostapi"] == in_api and dev["max_output_channels"] > 0:
-                return (self._device, i)
-        # Fallback: let sounddevice pick the default output
+        api_info = sd.query_hostapis(in_info["hostapi"])
+        default_out = api_info.get("default_output_device", -1)
+        if default_out >= 0:
+            return (self._device, default_out)
         return (self._device, None)
 
     def stop(self) -> None:
