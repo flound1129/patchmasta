@@ -21,10 +21,12 @@ class DevicePanel(QWidget):
         super().__init__(parent)
         self._config = config or AppConfig()
         self._device = MidiDevice()
-        self._audio_monitor = AudioMonitor(device=self._config.audio_input_device)
+        self._audio_monitor = AudioMonitor()
         self._build_ui()
         self._refresh_ports()
         self._refresh_audio_devices()
+        # Now that the combo is populated, init monitor with the resolved index
+        self._audio_monitor = AudioMonitor(device=self.audio_device_combo.currentData())
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
