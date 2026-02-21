@@ -38,7 +38,16 @@ class MidiDevice:
             self.disconnect()
         self._midi_out.open_port(port_index)
         try:
-            self._midi_in.open_port(port_index)
+            # Input and output port indices are independent on Windows —
+            # find the input port by name rather than assuming the same index.
+            in_ports = self._midi_in.get_ports()
+            in_index = next(
+                (i for i, n in enumerate(in_ports) if DEVICE_NAME_FRAGMENT in n),
+                None,
+            )
+            if in_index is None:
+                raise RuntimeError(f"No MIDI input port found matching '{DEVICE_NAME_FRAGMENT}'")
+            self._midi_in.open_port(in_index)
         except Exception:
             self._midi_out.close_port()
             raise
