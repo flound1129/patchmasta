@@ -15,6 +15,7 @@ class Patch:
     created: str = field(default_factory=lambda: date.today().isoformat())
 
     def to_dict(self) -> dict:
+        """Return serializable metadata dict. Does not include sysex_file; use save() to write the full JSON."""
         return {
             "name": self.name,
             "program_number": self.program_number,
@@ -41,6 +42,8 @@ class Patch:
             syx_path = json_path.parent / d["sysex_file"]
             if syx_path.exists():
                 sysex_data = syx_path.read_bytes()
+        if "name" not in d:
+            raise ValueError(f"Patch JSON missing required 'name' field: {json_path}")
         return cls(
             name=d["name"],
             program_number=d.get("program_number", 0),
@@ -52,4 +55,5 @@ class Patch:
 
     @property
     def slug(self) -> str:
-        return self.name.lower().replace(" ", "-").replace("/", "-")
+        import re
+        return re.sub(r"[^\w-]", "-", self.name.lower()).strip("-")

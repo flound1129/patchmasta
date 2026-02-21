@@ -31,3 +31,10 @@ def test_patch_load_without_syx(tmp_path):
     p.save(json_path)
     loaded = Patch.load(json_path)
     assert loaded.sysex_data is None
+
+def test_patch_slug_sanitizes_special_chars():
+    p = Patch(name="Lead: Bright (Warm)", program_number=0)
+    assert ":" not in p.slug
+    assert "(" not in p.slug
+    assert ")" not in p.slug
+    assert p.slug  # non-empty
