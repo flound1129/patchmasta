@@ -1,6 +1,6 @@
 from midi.sysex import (
     build_program_change, build_program_dump_request, build_all_dump_request,
-    parse_program_dump, build_program_write,
+    parse_program_dump, build_program_write, extract_patch_name,
     KORG_ID, MODEL_ID,
 )
 
@@ -60,3 +60,18 @@ def test_invalid_channel_raises():
 def test_parse_program_dump_rejects_missing_f7():
     bad = [0xF0, 0x42, 0x30, *MODEL_ID, 0x40, 0x01, 0x02]  # no F7
     assert parse_program_dump(bad) is None
+
+def test_extract_patch_name_ascii():
+    name_bytes = list(b"BrassLead   ")
+    data = bytes(name_bytes + [0x00] * 20)
+    assert extract_patch_name(data) == "BrassLead"
+
+def test_extract_patch_name_strips_padding():
+    data = bytes(list(b"Pad         ") + [0x00] * 20)
+    assert extract_patch_name(data) == "Pad"
+
+def test_extract_patch_name_empty_data():
+    assert extract_patch_name(b"") is None
+
+def test_extract_patch_name_short_data():
+    assert extract_patch_name(b"\x00\x01") is None

@@ -51,6 +51,18 @@ def parse_program_dump(message: list[int]) -> bytes | None:
     return bytes(message[func_idx + 1:-1])
 
 
+PATCH_NAME_OFFSET = 0
+PATCH_NAME_LENGTH = 12
+
+
+def extract_patch_name(data: bytes) -> str | None:
+    if len(data) < PATCH_NAME_OFFSET + PATCH_NAME_LENGTH:
+        return None
+    raw = data[PATCH_NAME_OFFSET:PATCH_NAME_OFFSET + PATCH_NAME_LENGTH]
+    name = bytes(b for b in raw if 0x20 <= b <= 0x7E).decode("ascii").strip()
+    return name or None
+
+
 def build_program_write(channel: int, data: bytes) -> list[int]:
     # TODO: verify write format against Parameter Guide before device testing
     return ([0xF0, KORG_ID, _channel_byte(channel), *MODEL_ID,
