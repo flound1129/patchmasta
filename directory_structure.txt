@@ -26,6 +26,7 @@
 ./model
 ./model/bank.py
 ./model/__init__.py
+./model/library.py
 ./model/patch.py
 ./patches
 ./.pytest_cache
@@ -47,6 +48,7 @@
 ./tests/model
 ./tests/model/__init__.py
 ./tests/model/test_bank.py
+./tests/model/test_library.py
 ./tests/model/test_patch.py
 ./tests/ui
 ./tests/ui/__init__.py
