@@ -73,11 +73,13 @@ class AudioMonitor:
         if self.is_running:
             return
         import sounddevice as sd
+        # Use selected device for input, system default for output
+        device = (self._device, None) if self._device is not None else None
         self._stream = sd.Stream(
             samplerate=self._sample_rate,
             channels=1,
             dtype="float32",
-            device=self._device,
+            device=device,
             callback=self._callback,
         )
         self._stream.start()
