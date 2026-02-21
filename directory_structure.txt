@@ -52,6 +52,10 @@
 ./tests/model/test_patch.py
 ./tests/ui
 ./tests/ui/__init__.py
+./tests/ui/test_device_panel.py
+./tests/ui/test_patch_detail.py
 ./ui
+./ui/device_panel.py
 ./ui/__init__.py
+./ui/patch_detail.py
 ./.venv
