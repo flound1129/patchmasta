@@ -16,27 +16,27 @@ class ChatPanel(QWidget):
     stop_requested = pyqtSignal()
 
     _USER_BUBBLE = (
-        '<div style="text-align: right; margin: 6px 0;">'
-        '<div style="display: inline-block; background-color: #2b7de9;'
-        " color: #fff; border-radius: 12px; padding: 8px 14px;"
-        ' max-width: 80%; text-align: left;">'
-        "{body}</div></div>"
+        '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;">'
+        '<tr><td width="25%"></td>'
+        '<td style="background-color:#2563eb; color:#ffffff; padding:8px 12px;">'
+        "{body}</td></tr></table>"
     )
 
     _AI_BUBBLE = (
-        '<div style="text-align: left; margin: 6px 0;">'
-        '<div style="display: inline-block; background-color: #e9ecef;'
-        " color: #1a1a1a; border-radius: 12px; padding: 8px 14px;"
-        ' max-width: 80%;">'
-        "{body}</div></div>"
+        '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;">'
+        "<tr>"
+        '<td style="background-color:#374151; color:#e5e7eb; padding:8px 12px;">'
+        "{body}</td>"
+        '<td width="10%"></td></tr></table>'
     )
 
     _TOOL_BUBBLE = (
-        '<div style="text-align: left; margin: 4px 0;">'
-        '<div style="display: inline-block; background-color: #f0f0f0;'
-        " color: #666; border-radius: 8px; padding: 6px 12px;"
-        ' max-width: 80%; font-style: italic;">'
-        "{body}</div></div>"
+        '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:2px;">'
+        "<tr>"
+        '<td style="background-color:#1f2937; color:#9ca3af; padding:4px 12px;'
+        ' font-style:italic; font-size:small;">'
+        "{body}</td>"
+        '<td width="10%"></td></tr></table>'
     )
 
     _THINKING_TEXTS = ["Thinking.", "Thinking..", "Thinking..."]
