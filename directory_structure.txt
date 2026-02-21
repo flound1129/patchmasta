@@ -22,6 +22,7 @@
 ./midi
 ./midi/device.py
 ./midi/__init__.py
+./midi/sysex.py
 ./model
 ./model/__init__.py
 ./patches
@@ -40,6 +41,7 @@
 ./tests/midi
 ./tests/midi/__init__.py
 ./tests/midi/test_device.py
+./tests/midi/test_sysex.py
 ./tests/model
 ./tests/model/__init__.py
 ./tests/ui

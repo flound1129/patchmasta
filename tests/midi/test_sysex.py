@@ -1,0 +1,36 @@
+from midi.sysex import (
+    build_program_dump_request, build_all_dump_request,
+    parse_program_dump, build_program_write,
+    KORG_ID, MODEL_ID,
+)
+
+def test_korg_id():
+    assert KORG_ID == 0x42
+
+def test_program_dump_request_structure():
+    msg = build_program_dump_request(channel=1, program=5)
+    assert msg[0] == 0xF0
+    assert msg[1] == 0x42
+    assert msg[2] == 0x30
+    assert msg[-1] == 0xF7
+
+def test_program_dump_request_channel_encoding():
+    msg = build_program_dump_request(channel=3, program=0)
+    assert msg[2] == 0x32  # 0x30 + (3-1)
+
+def test_parse_program_dump_returns_bytes():
+    fake = [0xF0, 0x42, 0x30, MODEL_ID, 0x40, 0x01, 0x02, 0x03, 0xF7]
+    result = parse_program_dump(fake)
+    assert isinstance(result, bytes)
+    assert len(result) > 0
+
+def test_parse_program_dump_rejects_non_korg():
+    bad = [0xF0, 0x41, 0x30, MODEL_ID, 0x40, 0x01, 0xF7]
+    assert parse_program_dump(bad) is None
+
+def test_build_program_write_roundtrip():
+    data = bytes([0x01, 0x02, 0x03])
+    msg = build_program_write(channel=1, program=0, data=data)
+    assert msg[0] == 0xF0
+    assert msg[1] == 0x42
+    assert msg[-1] == 0xF7
