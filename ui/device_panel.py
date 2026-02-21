@@ -17,6 +17,7 @@ class DevicePanel(QWidget):
     pull_requested = pyqtSignal()
     load_all_requested = pyqtSignal()
     load_range_requested = pyqtSignal()
+    synth_editor_requested = pyqtSignal()
 
     def __init__(self, config: AppConfig | None = None, parent=None) -> None:
         super().__init__(parent)
@@ -100,6 +101,11 @@ class DevicePanel(QWidget):
         action_layout.addWidget(self.load_range_btn)
 
         layout.addWidget(action_group)
+
+        self.synth_editor_btn = QPushButton("Synth Editor")
+        self.synth_editor_btn.clicked.connect(self.synth_editor_requested)
+        layout.addWidget(self.synth_editor_btn)
+
         layout.addStretch()
 
     def _on_refresh(self) -> None:

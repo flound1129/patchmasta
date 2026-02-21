@@ -30,6 +30,7 @@ Think step-by-step about which parameters affect which sonic qualities."""
 class AIController(QObject):
     response_ready = pyqtSignal(str)      # AI text response
     tool_executed = pyqtSignal(str, str)  # tool_name, result_summary
+    parameter_changed = pyqtSignal(str, int)  # param_name, value
     error = pyqtSignal(str)
 
     def __init__(
@@ -116,6 +117,7 @@ class AIController(QObject):
         for i in range(0, len(msg), 3):
             self._device.send(msg[i:i + 3])
         self._param_state[name] = value
+        self.parameter_changed.emit(name, value)
         return f"Set {name} = {value}"
 
     def _tool_get_parameter(self, name: str) -> str:

@@ -55,3 +55,18 @@ def test_on_patch_saved_uses_source_path(main_window, tmp_path):
 
     loaded = Patch.load(json_path)
     assert loaded.name == "Renamed"
+
+def test_chat_panel_not_in_main_window(main_window):
+    """ChatPanel has been moved to SynthEditorWindow."""
+    assert not hasattr(main_window, '_chat_panel')
+
+def test_synth_editor_button_exists(main_window):
+    """DevicePanel has a Synth Editor button."""
+    assert main_window._device_panel.synth_editor_btn is not None
+
+def test_open_synth_editor_creates_window(main_window):
+    """open_synth_editor creates and shows the SynthEditorWindow."""
+    assert main_window._synth_editor is None
+    main_window.open_synth_editor()
+    assert main_window._synth_editor is not None
+    main_window._synth_editor.hide()

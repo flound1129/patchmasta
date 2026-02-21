@@ -9,6 +9,7 @@ class ParamDef:
     sonic_effect: str
     min_val: int
     max_val: int
+    group: str = ""
     nrpn_msb: int | None = None
     nrpn_lsb: int | None = None
     cc_number: int | None = None
@@ -28,32 +29,44 @@ class ParamDef:
 
 
 _PARAMS: list[ParamDef] = [
+    # Arpeggiator
     ParamDef("arp_on_off", "Arpeggiator on/off", "Enables/disables the arpeggiator",
-             0, 127, nrpn_msb=0x00, nrpn_lsb=0x02),
+             0, 127, group="arpeggiator", nrpn_msb=0x00, nrpn_lsb=0x02),
     ParamDef("arp_latch", "Arpeggiator latch", "Holds the arpeggio after releasing keys",
-             0, 127, nrpn_msb=0x00, nrpn_lsb=0x04),
+             0, 127, group="arpeggiator", nrpn_msb=0x00, nrpn_lsb=0x04),
     ParamDef("arp_type", "Arpeggiator type", "Pattern: Up, Down, Alt1, Alt2, Random, Trigger",
-             0, 127, nrpn_msb=0x00, nrpn_lsb=0x07),
+             0, 127, group="arpeggiator", nrpn_msb=0x00, nrpn_lsb=0x07),
     ParamDef("arp_gate", "Arpeggiator gate time", "Duration of each arpeggio note",
-             0, 127, nrpn_msb=0x00, nrpn_lsb=0x0A),
+             0, 127, group="arpeggiator", nrpn_msb=0x00, nrpn_lsb=0x0A),
     ParamDef("arp_select", "Arpeggiator timbre select", "Which timbre the arp applies to",
-             0, 127, nrpn_msb=0x00, nrpn_lsb=0x0B),
+             0, 127, group="arpeggiator", nrpn_msb=0x00, nrpn_lsb=0x0B),
+    # Voice
     ParamDef("voice_mode", "Voice mode", "Single/Layer/Split/Multi timbre mode",
-             0, 127, nrpn_msb=0x05, nrpn_lsb=0x00),
+             0, 127, group="voice", nrpn_msb=0x05, nrpn_lsb=0x00),
+    # Virtual Patch
     ParamDef("patch1_source", "Virtual Patch 1 source", "Modulation source for patch 1",
-             0, 127, nrpn_msb=0x04, nrpn_lsb=0x00),
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x00),
     ParamDef("patch2_source", "Virtual Patch 2 source", "Modulation source for patch 2",
-             0, 127, nrpn_msb=0x04, nrpn_lsb=0x01),
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x01),
     ParamDef("patch3_source", "Virtual Patch 3 source", "Modulation source for patch 3",
-             0, 127, nrpn_msb=0x04, nrpn_lsb=0x02),
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x02),
+    ParamDef("patch4_source", "Virtual Patch 4 source", "Modulation source for patch 4",
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x03),
+    ParamDef("patch5_source", "Virtual Patch 5 source", "Modulation source for patch 5",
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x04),
     ParamDef("patch1_dest", "Virtual Patch 1 destination", "Parameter modulated by patch 1",
-             0, 127, nrpn_msb=0x04, nrpn_lsb=0x08),
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x08),
     ParamDef("patch2_dest", "Virtual Patch 2 destination", "Parameter modulated by patch 2",
-             0, 127, nrpn_msb=0x04, nrpn_lsb=0x09),
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x09),
     ParamDef("patch3_dest", "Virtual Patch 3 destination", "Parameter modulated by patch 3",
-             0, 127, nrpn_msb=0x04, nrpn_lsb=0x0A),
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x0A),
+    ParamDef("patch4_dest", "Virtual Patch 4 destination", "Parameter modulated by patch 4",
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x0B),
+    ParamDef("patch5_dest", "Virtual Patch 5 destination", "Parameter modulated by patch 5",
+             0, 127, group="virtual_patch", nrpn_msb=0x04, nrpn_lsb=0x0C),
+    # Vocoder
     ParamDef("vocoder_sw", "Vocoder on/off", "Enables/disables the vocoder",
-             0, 127, nrpn_msb=0x05, nrpn_lsb=0x04),
+             0, 127, group="vocoder", nrpn_msb=0x05, nrpn_lsb=0x04),
 ]
 
 
@@ -69,3 +82,6 @@ class ParamMap:
 
     def names(self) -> list[str]:
         return list(self._params.keys())
+
+    def by_group(self, group: str) -> list[ParamDef]:
+        return [p for p in self._params.values() if p.group == group]

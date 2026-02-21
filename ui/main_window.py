@@ -18,10 +18,7 @@ from ui.library_panel import LibraryPanel
 from ui.patch_detail import PatchDetailPanel
 from ui.device_panel import DevicePanel
 from ui.log_panel import LogPanel
-from ui.chat_panel import ChatPanel
-from ui.settings_dialog import SettingsDialog
-from ai.controller import AIController
-from ai.llm import ClaudeBackend, GroqBackend
+from ui.synth_editor_window import SynthEditorWindow
 from midi.params import ParamMap
 from core.config import AppConfig
 
@@ -51,7 +48,7 @@ class PullWorker(QThread):
             for i, slot in enumerate(self._slots):
                 if self._cancelled:
                     break
-                self.progress.emit(i, total, f"Slot {slot + 1} of {total}…")
+                self.progress.emit(i, total, f"Slot {slot + 1} of {total}...")
                 received: list[bytes] = []
                 event = threading.Event()
 
@@ -101,7 +98,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Korg RK-100S 2 Patch Manager")
-        self.resize(1500, 900)
+        self.resize(1100, 900)
         self._logger = AppLogger()
         self._library = Library(root=APP_ROOT)
         self._selected_patch: Patch | None = None
@@ -109,7 +106,7 @@ class MainWindow(QMainWindow):
         self._pull_worker: PullWorker | None = None
         self._config = AppConfig()
         self._param_map = ParamMap()
-        self._ai_controller: AIController | None = None
+        self._synth_editor: SynthEditorWindow | None = None
         self._build_ui()
         self._connect_signals()
         self._refresh_library()
@@ -122,15 +119,11 @@ class MainWindow(QMainWindow):
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._library_panel = LibraryPanel()
         self._detail_panel = PatchDetailPanel()
-        self._chat_panel = ChatPanel()
-        self._settings_btn = QPushButton("Settings")
-        self._chat_panel.layout().itemAt(0).layout().addWidget(self._settings_btn)
         self._device_panel = DevicePanel(config=self._config)
         h_splitter.addWidget(self._library_panel)
         h_splitter.addWidget(self._detail_panel)
-        h_splitter.addWidget(self._chat_panel)
         h_splitter.addWidget(self._device_panel)
-        h_splitter.setSizes([250, 350, 350, 300])
+        h_splitter.setSizes([250, 450, 300])
 
         self._log_panel = LogPanel()
 
@@ -151,16 +144,10 @@ class MainWindow(QMainWindow):
         self._device_panel.load_range_requested.connect(self._on_load_range)
         self._device_panel.connected.connect(lambda _: self._library_panel.set_device_connected(True))
         self._device_panel.disconnected.connect(lambda: self._library_panel.set_device_connected(False))
-        self._device_panel.connected.connect(lambda _: self._chat_panel.set_device_connected(True))
-        self._device_panel.disconnected.connect(lambda: self._chat_panel.set_device_connected(False))
+        self._device_panel.connected.connect(self._on_device_connected)
+        self._device_panel.disconnected.connect(self._on_device_disconnected)
+        self._device_panel.synth_editor_requested.connect(self.open_synth_editor)
         self._logger.message_logged.connect(self._log_panel.append_message)
-        self._chat_panel.message_sent.connect(self._on_chat_message)
-        self._chat_panel.match_requested.connect(self._on_match_sound)
-        self._chat_panel.stop_requested.connect(self._on_stop_ai)
-        self._chat_panel.backend_combo.currentTextChanged.connect(
-            self._on_backend_changed
-        )
-        self._settings_btn.clicked.connect(self._on_open_settings)
 
     def _refresh_library(self) -> None:
         banks = self._library.list_banks()
@@ -187,7 +174,7 @@ class MainWindow(QMainWindow):
 
         total = len(slots)
         self._progress_dialog = QProgressDialog(
-            f"Pulling slot 1 of {total}…", "Cancel", 0, total, self
+            f"Pulling slot 1 of {total}...", "Cancel", 0, total, self
         )
         self._progress_dialog.setWindowTitle("Loading Patches")
         self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -216,7 +203,7 @@ class MainWindow(QMainWindow):
         self._set_action_buttons_enabled(self._device_panel.device.connected)
         if total > 1:
             self.statusBar().showMessage(
-                f"Done — {received} of {total} patches received.", 5000
+                f"Done -- {received} of {total} patches received.", 5000
             )
 
     def _set_action_buttons_enabled(self, enabled: bool) -> None:
@@ -230,7 +217,7 @@ class MainWindow(QMainWindow):
 
     def _on_pull_prompted(self) -> None:
         slot, ok = QInputDialog.getInt(
-            self, "Pull Program", "Slot to pull (0–127):", 0, 0, 127
+            self, "Pull Program", "Slot to pull (0-127):", 0, 0, 127
         )
         if ok:
             self._start_pull([slot])
@@ -261,80 +248,43 @@ class MainWindow(QMainWindow):
 
     def _on_load_range(self) -> None:
         start, ok1 = QInputDialog.getInt(
-            self, "Load Slot Range", "Start slot (0–127):", 0, 0, 127
+            self, "Load Slot Range", "Start slot (0-127):", 0, 0, 127
         )
         if not ok1:
             return
         end, ok2 = QInputDialog.getInt(
-            self, "Load Slot Range", "End slot (0–127):", min(start + 40, 127), start, 127
+            self, "Load Slot Range", "End slot (0-127):", min(start + 40, 127), start, 127
         )
         if not ok2:
             return
         self._start_pull(list(range(start, end + 1)))
 
-    def _on_backend_changed(self) -> None:
-        self._ai_controller = None
+    # -- Synth Editor Window --
 
-    def _on_open_settings(self) -> None:
-        dlg = SettingsDialog(self._config, parent=self)
-        if dlg.exec():
-            self._ai_controller = None
-            backend_label = self._config.ai_backend.capitalize()
-            idx = self._chat_panel.backend_combo.findText(backend_label)
-            if idx >= 0:
-                self._chat_panel.backend_combo.setCurrentIndex(idx)
+    def _get_or_create_synth_editor(self) -> SynthEditorWindow:
+        if self._synth_editor is None:
+            self._synth_editor = SynthEditorWindow(
+                device=self._device_panel.device,
+                param_map=self._param_map,
+                config=self._config,
+                logger=self._logger,
+                parent=None,
+            )
+            # Sync current connection state
+            if self._device_panel.device.connected:
+                self._synth_editor.set_device_connected(True)
+        return self._synth_editor
 
-    def _get_or_create_ai_controller(self) -> AIController | None:
-        if self._ai_controller is not None:
-            return self._ai_controller
-        backend_name = self._chat_panel.backend_combo.currentText().lower()
-        if backend_name == "claude":
-            if not self._config.claude_api_key:
-                QMessageBox.warning(self, "No API Key", "Set claude_api_key in ~/.patchmasta/config.json")
-                return None
-            backend = ClaudeBackend(api_key=self._config.claude_api_key)
-        else:
-            if not self._config.groq_api_key:
-                QMessageBox.warning(self, "No API Key", "Set groq_api_key in ~/.patchmasta/config.json")
-                return None
-            backend = GroqBackend(api_key=self._config.groq_api_key)
-        ctrl = AIController(
-            backend=backend,
-            device=self._device_panel.device,
-            param_map=self._param_map,
-            logger=self._logger,
-        )
-        ctrl.response_ready.connect(self._on_ai_response)
-        ctrl.tool_executed.connect(self._on_ai_tool)
-        ctrl.error.connect(self._on_ai_error)
-        self._ai_controller = ctrl
-        return ctrl
+    def _on_device_connected(self, port_name: str) -> None:
+        if self._synth_editor is not None:
+            self._synth_editor.set_device_connected(True)
 
-    def _on_chat_message(self, text: str) -> None:
-        self._chat_panel.append_user_message(text)
-        ctrl = self._get_or_create_ai_controller()
-        if ctrl:
-            self._chat_panel.set_thinking(True)
-            ctrl.send_message(text)
+    def _on_device_disconnected(self) -> None:
+        if self._synth_editor is not None:
+            self._synth_editor.set_device_connected(False)
 
-    def _on_match_sound(self, wav_path: str) -> None:
-        ctrl = self._get_or_create_ai_controller()
-        if ctrl:
-            self._chat_panel.set_thinking(True)
-            ctrl.match_sound(wav_path)
-
-    def _on_stop_ai(self) -> None:
-        if self._ai_controller:
-            self._ai_controller.stop()
-        self._chat_panel.set_thinking(False)
-
-    def _on_ai_response(self, text: str) -> None:
-        self._chat_panel.append_ai_message(text)
-        self._chat_panel.set_thinking(False)
-
-    def _on_ai_tool(self, tool_name: str, result: str) -> None:
-        self._chat_panel.append_tool_message(tool_name, result)
-
-    def _on_ai_error(self, error: str) -> None:
-        self._chat_panel.append_ai_message(f"Error: {error}")
-        self._chat_panel.set_thinking(False)
+    def open_synth_editor(self) -> None:
+        editor = self._get_or_create_synth_editor()
+        editor.show()
+        editor.raise_()
+        editor.activateWindow()
