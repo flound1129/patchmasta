@@ -32,3 +32,22 @@ def test_chat_panel_send_signal(app):
     panel.send_btn.click()
     assert received == ["test message"]
     assert panel.input_edit.text() == ""
+
+def test_chat_panel_thinking_indicator_shows_and_hides(app):
+    panel = ChatPanel()
+    panel.set_thinking(True)
+    text = panel.history.toPlainText()
+    assert "Thinking" in text
+    panel.set_thinking(False)
+    text = panel.history.toPlainText()
+    assert "Thinking" not in text
+
+def test_chat_panel_thinking_preserves_prior_messages(app):
+    panel = ChatPanel()
+    panel.append_user_message("hello")
+    panel.set_thinking(True)
+    assert "Thinking" in panel.history.toPlainText()
+    assert "hello" in panel.history.toPlainText()
+    panel.set_thinking(False)
+    assert "hello" in panel.history.toPlainText()
+    assert "Thinking" not in panel.history.toPlainText()
