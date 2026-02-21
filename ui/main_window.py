@@ -46,15 +46,17 @@ class PullWorker(QThread):
 
                 def on_sysex(midi_event, data=None, _recv=received, _evt=event):
                     message, _ = midi_event
+                    print(f"[RX] {[hex(b) for b in message[:12]]}{'...' if len(message) > 12 else ''}", flush=True)
                     parsed = parse_program_dump(list(message))
                     if parsed is not None:
                         _recv.append(parsed)
                         _evt.set()
 
+                msg = build_program_dump_request(channel=1, program=slot & 0x7F)
+                if i == 0:
+                    print(f"[TX] slot {slot}: {[hex(b) for b in msg]}", flush=True)
                 self._device.set_sysex_callback(on_sysex)
-                self._device.send(
-                    build_program_dump_request(channel=1, program=slot & 0x7F)
-                )
+                self._device.send(msg)
                 event.wait(timeout=0.5)
 
                 # Clear callback before next slot to prevent cross-slot attribution
