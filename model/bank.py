@@ -32,9 +32,10 @@ class Bank:
         d = json.loads(path.read_text())
         bank = cls(name=d["name"])
         for entry in d.get("slots", []):
-            bank.assign(entry["slot"], Path(entry["patch_file"]))
+            bank.assign(int(entry["slot"]), Path(entry["patch_file"]))
         return bank
 
     @property
     def slug(self) -> str:
-        return self.name.lower().replace(" ", "-")
+        import re
+        return re.sub(r"[^\w-]", "-", self.name.lower()).strip("-")

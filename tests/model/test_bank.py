@@ -29,3 +29,9 @@ def test_bank_ordered_slots():
     b.assign(slot=5, patch_file=Path("p5.json"))
     b.assign(slot=2, patch_file=Path("p2.json"))
     assert list(b.ordered_slots()) == [(2, Path("p2.json")), (5, Path("p5.json"))]
+
+def test_bank_slug_sanitizes_special_chars():
+    b = Bank(name="Live Set (v2)")
+    assert "(" not in b.slug
+    assert ")" not in b.slug
+    assert b.slug
