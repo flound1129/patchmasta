@@ -4,6 +4,9 @@
 ./ai/__init__.py
 ./ai/llm.py
 ./ai/tools.py
+./audio
+./audio/engine.py
+./audio/__init__.py
 ./banks
 ./build
 ./build/build.sh
@@ -66,6 +69,9 @@
 ./tests/ai/__init__.py
 ./tests/ai/test_controller.py
 ./tests/ai/test_llm.py
+./tests/audio
+./tests/audio/__init__.py
+./tests/audio/test_engine.py
 ./tests/core
 ./tests/core/__init__.py
 ./tests/core/test_config.py
