@@ -10,6 +10,8 @@ FUNC_ALL_DUMP = 0x4E
 
 
 def _channel_byte(channel: int) -> int:
+    if not (1 <= channel <= 16):
+        raise ValueError(f"MIDI channel must be 1-16, got {channel}")
     return 0x30 + (channel - 1)
 
 
@@ -29,6 +31,8 @@ def parse_program_dump(message: list[int]) -> bytes | None:
     if message[0] != 0xF0 or message[1] != KORG_ID:
         return None
     if message[3] != MODEL_ID or message[4] != FUNC_PROGRAM_DUMP:
+        return None
+    if message[-1] != 0xF7:
         return None
     return bytes(message[5:-1])
 
