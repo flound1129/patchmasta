@@ -64,7 +64,8 @@ def extract_patch_name(data: bytes) -> str | None:
 
 
 def build_program_write(channel: int, data: bytes) -> list[int]:
-    # TODO: verify write format against Parameter Guide before device testing
+    if any(b & 0x80 for b in data):
+        raise ValueError("SysEx data bytes must all be <= 0x7F")
     return ([0xF0, KORG_ID, _channel_byte(channel), *MODEL_ID,
              FUNC_PROGRAM_DUMP]
             + list(data) + [0xF7])

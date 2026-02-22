@@ -120,39 +120,43 @@ class OffsetDiscovery:
         offsets: dict[str, int] = {}
         ambiguous: dict[str, list[tuple[int, int, int]]] = {}
 
-        for i, param in enumerate(nrpn_params):
-            if on_progress:
-                on_progress(i, total, param.name)
+        try:
+            for i, param in enumerate(nrpn_params):
+                if on_progress:
+                    on_progress(i, total, param.name)
 
-            # Clamp test values to valid NRPN range (0-127)
-            val_lo = max(0, param.min_val)
-            val_hi = min(127, param.max_val)
-            if val_lo == val_hi:
-                continue  # can't diff a param with only one possible value
+                # Clamp test values to valid NRPN range (0-127)
+                val_lo = max(0, param.min_val)
+                val_hi = min(127, param.max_val)
+                if val_lo == val_hi:
+                    continue  # can't diff a param with only one possible value
 
-            # Set to low value, pull
-            self._send_nrpn(param, val_lo)
-            time.sleep(settle_time)
-            dump_lo = self.pull_program()
+                # Set to low value, pull
+                self._send_nrpn(param, val_lo)
+                time.sleep(settle_time)
+                dump_lo = self.pull_program()
 
-            # Set to high value, pull
-            self._send_nrpn(param, val_hi)
-            time.sleep(settle_time)
-            dump_hi = self.pull_program()
+                # Set to high value, pull
+                self._send_nrpn(param, val_hi)
+                time.sleep(settle_time)
+                dump_hi = self.pull_program()
 
-            if dump_lo is None or dump_hi is None:
-                continue
+                if dump_lo is None or dump_hi is None:
+                    continue
 
-            diffs = self._diff_bytes(dump_lo, dump_hi)
+                diffs = self._diff_bytes(dump_lo, dump_hi)
 
-            if len(diffs) == 1:
-                offsets[param.name] = diffs[0][0]
-            elif len(diffs) > 1:
-                # Multiple bytes changed — record the first but flag it
-                offsets[param.name] = diffs[0][0]
-                ambiguous[param.name] = diffs
+                if len(diffs) == 1:
+                    offsets[param.name] = diffs[0][0]
+                elif len(diffs) > 1:
+                    # Multiple bytes changed — record the first but flag it
+                    offsets[param.name] = diffs[0][0]
+                    ambiguous[param.name] = diffs
 
-            # Restore original program state
+                # Restore original program state
+                self.write_program(baseline)
+        finally:
+            # Always restore baseline, even if interrupted or an error occurs
             self.write_program(baseline)
 
         if on_progress:
@@ -269,7 +273,10 @@ def main() -> None:
     from core.logger import AppLogger
 
     parser = argparse.ArgumentParser(description="Discover SysEx byte offsets")
-    parser.add_argument("port", type=int, help="MIDI port index")
+    parser.add_argument("port", type=int, nargs="?", default=None,
+                        help="MIDI port index (use --list to see available ports)")
+    parser.add_argument("--list", "-l", action="store_true",
+                        help="List available MIDI ports and exit")
     parser.add_argument("--output", "-o", default="offsets.json",
                         help="Output JSON file (default: offsets.json)")
     parser.add_argument("--interactive", "-i", action="store_true",
@@ -287,6 +294,14 @@ def main() -> None:
     for i, name in enumerate(ports):
         print(f"  [{i}] {name}")
     print()
+
+    if args.list:
+        sys.exit(0)
+
+    if args.port is None:
+        print("Usage: python tools/discover_offsets.py <port-index>")
+        print("       python tools/discover_offsets.py --list")
+        sys.exit(1)
 
     if args.port >= len(ports):
         print(f"Port index {args.port} out of range (0-{len(ports)-1})")

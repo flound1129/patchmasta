@@ -156,7 +156,7 @@ class SynthEditorWindow(QMainWindow):
             return
         data = self._sysex_buffer.to_bytes()
         msg = build_program_write(channel=1, data=data)
-        self._device.send_sysex(msg)
+        self._device.send(msg)
         self._sysex_buffer.mark_clean()
         self._logger.midi("SysEx program write sent")
 
