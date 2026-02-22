@@ -43,6 +43,7 @@
 ./midi/device.py
 ./midi/__init__.py
 ./midi/params.py
+./midi/sysex_buffer.py
 ./midi/sysex.py
 ./model
 ./model/bank.py
@@ -87,6 +88,7 @@
 ./tests/midi/__init__.py
 ./tests/midi/test_device.py
 ./tests/midi/test_params.py
+./tests/midi/test_sysex_buffer.py
 ./tests/midi/test_sysex.py
 ./tests/model
 ./tests/model/__init__.py
@@ -104,6 +106,9 @@
 ./tests/ui/test_settings_dialog.py
 ./tests/ui/test_synth_editor_window.py
 ./tests/ui/test_synth_params_panel.py
+./tests/ui/test_synth_tabs.py
+./tools
+./tools/sysex_diff.py
 ./ui
 ./ui/chat_panel.py
 ./ui/device_panel.py
@@ -115,4 +120,6 @@
 ./ui/settings_dialog.py
 ./ui/synth_editor_window.py
 ./ui/synth_params_panel.py
+./ui/synth_tabs.py
+./ui/widgets.py
 ./.venv

@@ -8,6 +8,7 @@ _DEFAULTS = {
     "groq_api_key": "",
     "audio_input_device": None,
     "theme": "auto",
+    "sysex_write_debounce_ms": 150,
 }
 
 class AppConfig:
@@ -18,6 +19,7 @@ class AppConfig:
         self.groq_api_key: str = _DEFAULTS["groq_api_key"]
         self.audio_input_device: str | None = _DEFAULTS["audio_input_device"]
         self.theme: str = _DEFAULTS["theme"]
+        self.sysex_write_debounce_ms: int = _DEFAULTS["sysex_write_debounce_ms"]
         self._load()
 
     def _load(self) -> None:

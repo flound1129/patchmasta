@@ -1,14 +1,20 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QHBoxLayout, QSplitter, QMessageBox, QPushButton,
+    QApplication, QMainWindow, QWidget, QHBoxLayout, QSplitter,
+    QMessageBox, QPushButton, QTabWidget,
 )
 from PyQt6.QtCore import Qt
 from ui.chat_panel import ChatPanel
 from ui.synth_params_panel import SynthParamsPanel
+from ui.synth_tabs import (
+    TimbreSynthTab, ArpeggiatorTab, EffectsTab, VocoderTab, EQTab,
+)
 from ui.settings_dialog import SettingsDialog
 from ai.controller import AIController
 from ai.llm import ClaudeBackend, GroqBackend
 from midi.params import ParamMap
+from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
+from midi.sysex import build_program_write
 from core.config import AppConfig
 from core.logger import AppLogger
 from core.theme import apply_theme
@@ -27,12 +33,17 @@ class SynthEditorWindow(QMainWindow):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Synth Editor")
-        self.resize(1100, 700)
+        self.resize(1200, 800)
         self._device = device
         self._param_map = param_map
         self._config = config
         self._logger = logger
         self._ai_controller: AIController | None = None
+        self._sysex_buffer = SysExProgramBuffer()
+        self._sysex_writer = DebouncedSysExWriter(
+            debounce_ms=getattr(config, "sysex_write_debounce_ms", 150)
+        )
+        self._sysex_writer.write_requested.connect(self._flush_sysex)
         self._build_ui()
         self._connect_signals()
 
@@ -53,15 +64,61 @@ class SynthEditorWindow(QMainWindow):
         self._chat_panel.layout().itemAt(0).layout().addWidget(self._settings_btn)
         chat_layout.addWidget(self._chat_panel)
 
-        # Right: synth params
+        # Right: tabbed parameter editor
+        self._tab_widget = QTabWidget()
+
+        # Overview tab (the original SynthParamsPanel)
         self._params_panel = SynthParamsPanel(
             param_map=self._param_map,
             on_user_change=self._on_user_param_change,
         )
+        self._tab_widget.addTab(self._params_panel, "Overview")
+
+        # Timbre 1 Synth tab
+        self._timbre1_tab = TimbreSynthTab(
+            param_map=self._param_map, timbre=1,
+            on_user_change=self._on_user_param_change,
+        )
+        self._tab_widget.addTab(self._timbre1_tab, "Timbre 1 Synth")
+
+        # Timbre 2 Synth tab
+        self._timbre2_tab = TimbreSynthTab(
+            param_map=self._param_map, timbre=2,
+            on_user_change=self._on_user_param_change,
+        )
+        self._tab_widget.addTab(self._timbre2_tab, "Timbre 2 Synth")
+
+        # Arpeggiator tab
+        self._arp_tab = ArpeggiatorTab(
+            param_map=self._param_map,
+            on_user_change=self._on_user_param_change,
+        )
+        self._tab_widget.addTab(self._arp_tab, "Arpeggiator")
+
+        # Effects tab
+        self._effects_tab = EffectsTab(
+            param_map=self._param_map,
+            on_user_change=self._on_user_param_change,
+        )
+        self._tab_widget.addTab(self._effects_tab, "Effects")
+
+        # Vocoder tab
+        self._vocoder_tab = VocoderTab(
+            param_map=self._param_map,
+            on_user_change=self._on_user_param_change,
+        )
+        self._tab_widget.addTab(self._vocoder_tab, "Vocoder")
+
+        # EQ + Ribbon tab
+        self._eq_tab = EQTab(
+            param_map=self._param_map,
+            on_user_change=self._on_user_param_change,
+        )
+        self._tab_widget.addTab(self._eq_tab, "EQ / Ribbon")
 
         splitter.addWidget(chat_container)
-        splitter.addWidget(self._params_panel)
-        splitter.setSizes([550, 550])
+        splitter.addWidget(self._tab_widget)
+        splitter.setSizes([450, 750])
 
         layout.addWidget(splitter)
 
@@ -74,14 +131,54 @@ class SynthEditorWindow(QMainWindow):
         )
         self._settings_btn.clicked.connect(self._on_open_settings)
 
+    # -- Parameter change handling --
+
     def _on_user_param_change(self, name: str, value: int) -> None:
         """User adjusted a synth control widget -- send MIDI to device."""
         param = self._param_map.get(name)
         if param is None or not self._device.connected:
             return
-        msg = param.build_message(channel=1, value=value)
-        for i in range(0, len(msg), 3):
-            self._device.send(msg[i:i + 3])
+
+        # NRPN/CC params: send real-time MIDI
+        if param.is_nrpn or param.cc_number is not None:
+            msg = param.build_message(channel=1, value=value)
+            for i in range(0, len(msg), 3):
+                self._device.send(msg[i:i + 3])
+
+        # SysEx-only params: update buffer and debounce write
+        if param.sysex_offset is not None and self._sysex_buffer.size > 0:
+            self._sysex_buffer.set_param(param, value)
+            self._sysex_writer.schedule()
+
+    def _flush_sysex(self) -> None:
+        """Write the full program buffer to the device via SysEx."""
+        if not self._sysex_buffer.dirty or not self._device.connected:
+            return
+        data = self._sysex_buffer.to_bytes()
+        msg = build_program_write(channel=1, data=data)
+        self._device.send_sysex(msg)
+        self._sysex_buffer.mark_clean()
+        self._logger.midi("SysEx program write sent")
+
+    def load_program_data(self, data: bytes) -> None:
+        """Load program SysEx data into buffer and update all UI widgets."""
+        self._sysex_buffer.load(data)
+        # Update UI from buffer for all params that have sysex_offset
+        for p in self._param_map.list_all():
+            if p.sysex_offset is not None:
+                val = self._sysex_buffer.get_param(p)
+                if val is not None:
+                    self._dispatch_param_to_ui(p.name, val)
+
+    def _dispatch_param_to_ui(self, name: str, value: int) -> None:
+        """Update the correct tab widget for a parameter change."""
+        self._params_panel.on_param_changed(name, value)
+        self._timbre1_tab.on_param_changed(name, value)
+        self._timbre2_tab.on_param_changed(name, value)
+        self._arp_tab.on_param_changed(name, value)
+        self._effects_tab.on_param_changed(name, value)
+        self._vocoder_tab.on_param_changed(name, value)
+        self._eq_tab.on_param_changed(name, value)
 
     def set_device_connected(self, connected: bool) -> None:
         self._chat_panel.set_device_connected(connected)
@@ -132,7 +229,7 @@ class SynthEditorWindow(QMainWindow):
         ctrl.response_ready.connect(self._on_ai_response)
         ctrl.tool_executed.connect(self._on_ai_tool)
         ctrl.error.connect(self._on_ai_error)
-        ctrl.parameter_changed.connect(self._params_panel.on_param_changed)
+        ctrl.parameter_changed.connect(self._dispatch_param_to_ui)
         self._ai_controller = ctrl
         return ctrl
 

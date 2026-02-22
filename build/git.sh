@@ -20,8 +20,15 @@ case "$1" in
         git add -A
         git commit -m "$*"
         ;;
+    update-structure)
+        update_directory_structure
+        echo "Updated directory_structure.txt"
+        ;;
     *)
-        echo "Usage: build/git.sh commit <message>"
+        echo "Usage: build/git.sh <command>"
+        echo "Commands:"
+        echo "  commit <message>    Update structure, stage all, and commit"
+        echo "  update-structure    Update directory_structure.txt only"
         exit 1
         ;;
 esac

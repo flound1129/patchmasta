@@ -12,11 +12,31 @@ SYSTEM_PROMPT = """You are an AI sound designer for the Korg RK-100S 2 keytar sy
 You can control synth parameters in real-time via MIDI. When the user describes a sound they want,
 translate their description into parameter changes.
 
-Available parameter categories:
-- Arpeggiator: on/off, latch, type, gate, select
-- Voice: mode (single/layer/split/multi)
-- Virtual Patches: 5 modulation routings (source -> destination with intensity)
-- Vocoder: on/off, fc modulation source
+Available parameter sections (per timbre):
+- Oscillator 1: Wave (Saw/Pulse/Triangle/Sine/Formant/Noise/PCM-DWGS/Audio In), OSC Mod, Control 1/2, Wave Select
+- Oscillator 2: Wave, OSC Mod (Off/Ring/Sync/Ring+Sync), Semitone, Tune
+- Mixer: OSC1/OSC2/Noise levels, Punch Level
+- Filter 1: Balance (LPF24/LPF12/HPF/BPF/THRU), Cutoff, Resonance, EG Int, Key Track, Velo Sens
+- Filter 2: Type (LPF/HPF/BPF), Cutoff, Resonance, EG Int, Key Track, Velo Sens
+- Filter Routing: Single/Serial/Parallel/Individual
+- AMP: Level, Pan, Key Track, Wave Shape Depth/Type/Position
+- Filter EG / AMP EG / Assignable EG: Attack, Decay, Sustain, Release, Lv.Velo
+- LFO1 / LFO2: Wave, Key Sync, BPM Sync, Frequency, Sync Note
+- Voice: Assign (Mono1/Mono2/Poly), Unison SW/Detune/Spread, Analog Tuning
+- Pitch: Transpose, Bend Range, Detune, Vibrato Int, Portamento
+- Timbre EQ: Low/High Freq + Gain
+
+Common parameters:
+- Voice Mode: Single/Layer/Split/Multi
+- Arpeggiator: ON/OFF, Latch, Type, Gate, Select, Octave Range, Resolution, Last Step, Key Sync, Swing, Steps 1-8
+- Virtual Patches 1-5: Source, Destination, Intensity
+- Master Effects 1 & 2: FX Type (17 types), Ribbon Assign/Polarity
+- Vocoder: ON/OFF, Carrier levels, Modulator settings, Filter, AMP, 16-band Level/Pan
+- Ribbon: Long Ribbon scale/pitch/filter, Short Ribbon settings
+
+Parameters prefixed t1_ are Timbre 1, t2_ are Timbre 2.
+NRPN params (arp, voice_mode, virtual patch src/dst, vocoder sw/band) send in real-time.
+All other params require SysEx program write (handled automatically with debouncing).
 
 When matching a sound from a WAV file:
 1. First analyze the WAV to understand its spectral characteristics
@@ -113,9 +133,15 @@ class AIController(QObject):
             return f"Unknown parameter: {name}"
         if not self._device.connected:
             return "Device not connected"
-        msg = param.build_message(channel=1, value=value)
-        for i in range(0, len(msg), 3):
-            self._device.send(msg[i:i + 3])
+        # NRPN/CC params: send real-time MIDI
+        if param.is_nrpn or param.cc_number is not None:
+            msg = param.build_message(channel=1, value=value)
+            for i in range(0, len(msg), 3):
+                self._device.send(msg[i:i + 3])
+        elif param.is_sysex_only:
+            return f"Set {name} = {value} (SysEx-only, update via editor UI)"
+        else:
+            return f"Parameter {name} has no MIDI address"
         self._param_state[name] = value
         self.parameter_changed.emit(name, value)
         return f"Set {name} = {value}"

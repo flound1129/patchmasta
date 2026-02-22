@@ -9,12 +9,20 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-def test_panel_creates_all_param_widgets(app):
+def test_panel_creates_overview_param_widgets(app):
     pm = ParamMap()
     panel = SynthParamsPanel(param_map=pm)
-    # All ParamMap params should have a widget
-    for name in pm.names():
+    # Overview panel contains voice, arp, virtual patch, and vocoder on/off widgets
+    expected = [
+        "voice_mode", "arp_on_off", "arp_latch", "arp_type", "arp_gate", "arp_select",
+        "vocoder_sw",
+    ]
+    for name in expected:
         assert name in panel._widgets, f"Missing widget for {name}"
+    # Virtual patch source/dest 1-5
+    for i in range(1, 6):
+        assert f"patch{i}_source" in panel._widgets
+        assert f"patch{i}_dest" in panel._widgets
 
 
 def test_on_param_changed_updates_combo(app):
