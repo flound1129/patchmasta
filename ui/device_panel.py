@@ -108,6 +108,9 @@ class DevicePanel(QWidget):
         layout.addWidget(self.synth_editor_btn)
 
         self.settings_btn = QPushButton("Settings")
+        self.settings_btn.setIcon(self.style().standardIcon(
+            self.style().StandardPixmap.SP_FileDialogDetailedView
+        ))
         self.settings_btn.clicked.connect(self.settings_requested)
         layout.addWidget(self.settings_btn)
 
