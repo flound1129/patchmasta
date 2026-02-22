@@ -159,6 +159,21 @@ class DevicePanel(QWidget):
                 except Exception as exc:
                     QMessageBox.critical(self, "Connection Failed", str(exc))
 
+    def auto_connect(self) -> None:
+        """Try to connect to the last used MIDI port from config."""
+        saved = self._config.midi_port
+        if not saved:
+            return
+        for i in range(self.port_combo.count()):
+            if self.port_combo.itemText(i) == saved:
+                self.port_combo.setCurrentIndex(i)
+                try:
+                    self._device.connect(i, saved)
+                    self._set_connected(True)
+                except Exception:
+                    pass
+                return
+
     def _set_connected(self, state: bool) -> None:
         for btn in (self.send_btn, self.pull_btn, self.load_all_btn, self.load_range_btn):
             btn.setEnabled(state)
@@ -166,6 +181,8 @@ class DevicePanel(QWidget):
             self.connect_btn.setText("Disconnect")
             self.status_label.setText(f"Connected: {self._device.port_name}")
             self.monitor_btn.setEnabled(True)
+            self._config.midi_port = self._device.port_name
+            self._config.save()
             self.connected.emit(self._device.port_name or "")
         else:
             self._audio_monitor.stop()

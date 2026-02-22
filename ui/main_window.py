@@ -113,6 +113,7 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._refresh_library()
         self._logger.general("PatchMasta started")
+        self._device_panel.auto_connect()
 
     def _build_ui(self) -> None:
         central = QWidget()
