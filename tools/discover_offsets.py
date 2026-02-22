@@ -277,8 +277,9 @@ def main() -> None:
                         help="MIDI port index (use --list to see available ports)")
     parser.add_argument("--list", "-l", action="store_true",
                         help="List available MIDI ports and exit")
-    parser.add_argument("--output", "-o", default="offsets.json",
-                        help="Output JSON file (default: offsets.json)")
+    default_output = str(Path.home() / ".config" / "patchmasta" / "offsets.json")
+    parser.add_argument("--output", "-o", default=default_output,
+                        help=f"Output JSON file (default: {default_output})")
     parser.add_argument("--interactive", "-i", action="store_true",
                         help="Interactive mode for SysEx-only params")
     parser.add_argument("--settle", type=float, default=0.15,

@@ -212,12 +212,12 @@ class SynthEditorWindow(QMainWindow):
         backend_name = self._chat_panel.backend_combo.currentText().lower()
         if backend_name == "claude":
             if not self._config.claude_api_key:
-                QMessageBox.warning(self, "No API Key", "Set claude_api_key in ~/.patchmasta/config.json")
+                QMessageBox.warning(self, "No API Key", "Set claude_api_key in ~/.config/patchmasta/config.json")
                 return None
             backend = ClaudeBackend(api_key=self._config.claude_api_key)
         else:
             if not self._config.groq_api_key:
-                QMessageBox.warning(self, "No API Key", "Set groq_api_key in ~/.patchmasta/config.json")
+                QMessageBox.warning(self, "No API Key", "Set groq_api_key in ~/.config/patchmasta/config.json")
                 return None
             backend = GroqBackend(api_key=self._config.groq_api_key)
         ctrl = AIController(

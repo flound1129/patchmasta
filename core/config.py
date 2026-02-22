@@ -13,7 +13,7 @@ _DEFAULTS = {
 
 class AppConfig:
     def __init__(self, path: Path | None = None) -> None:
-        self._path = path or Path.home() / ".patchmasta" / "config.json"
+        self._path = path or Path.home() / ".config" / "patchmasta" / "config.json"
         self.ai_backend: str = _DEFAULTS["ai_backend"]
         self.claude_api_key: str = _DEFAULTS["claude_api_key"]
         self.groq_api_key: str = _DEFAULTS["groq_api_key"]
