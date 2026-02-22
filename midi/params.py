@@ -16,6 +16,7 @@ class ParamDef:
     # SysEx program buffer addressing
     sysex_offset: int | None = None
     sysex_signed: bool = False
+    sysex_bit: int | None = None  # bit position within byte (for bit-packed params)
     # Display metadata
     display_name: str = ""
     section: str = ""
@@ -55,12 +56,12 @@ _PARAMS: list[ParamDef] = [
     ParamDef("arp_on_off", "Arpeggiator on/off", "Enables/disables the arpeggiator",
              0, 127, group="arpeggiator", section="arpeggiator",
              nrpn_msb=0x00, nrpn_lsb=0x02,
-             sysex_offset=384,
+             sysex_offset=384, sysex_bit=0,
              value_labels={0: "Off", 64: "On"}),
     ParamDef("arp_latch", "Arpeggiator latch", "Holds the arpeggio after releasing keys",
              0, 127, group="arpeggiator", section="arpeggiator",
              nrpn_msb=0x00, nrpn_lsb=0x04,
-             sysex_offset=384,
+             sysex_offset=384, sysex_bit=1,
              value_labels={0: "Off", 64: "On"}),
     ParamDef("arp_type", "Arpeggiator type", "Pattern: Up, Down, Alt1, Alt2, Random, Trigger",
              0, 127, group="arpeggiator", section="arpeggiator",

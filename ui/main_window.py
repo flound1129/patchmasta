@@ -2,7 +2,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QHBoxLayout,
+    QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QSplitter, QMessageBox, QInputDialog, QProgressDialog, QPushButton,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
@@ -112,11 +112,13 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._connect_signals()
         self._refresh_library()
+        self._logger.general("PatchMasta started")
 
     def _build_ui(self) -> None:
         central = QWidget()
         self.setCentralWidget(central)
-        layout = QHBoxLayout(central)
+        layout = QVBoxLayout(central)
+        layout.setContentsMargins(4, 4, 4, 4)
 
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._library_panel = LibraryPanel()
@@ -136,6 +138,16 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(v_splitter)
 
+        # Bottom bar with settings button
+        bottom_bar = QHBoxLayout()
+        self._settings_btn = QPushButton("Settings")
+        self._settings_btn.setIcon(self.style().standardIcon(
+            self.style().StandardPixmap.SP_FileDialogDetailedView
+        ))
+        bottom_bar.addWidget(self._settings_btn)
+        bottom_bar.addStretch()
+        layout.addLayout(bottom_bar)
+
     def _connect_signals(self) -> None:
         self._library_panel.patch_selected.connect(self._on_patch_selected)
         self._library_panel.patch_double_clicked.connect(self._on_patch_double_clicked)
@@ -150,7 +162,7 @@ class MainWindow(QMainWindow):
         self._device_panel.connected.connect(self._on_device_connected)
         self._device_panel.disconnected.connect(self._on_device_disconnected)
         self._device_panel.synth_editor_requested.connect(self.open_synth_editor)
-        self._device_panel.settings_requested.connect(self._on_open_settings)
+        self._settings_btn.clicked.connect(self._on_open_settings)
         self._logger.message_logged.connect(self._log_panel.append_message)
 
     def _refresh_library(self) -> None:
@@ -162,6 +174,7 @@ class MainWindow(QMainWindow):
         self._selected_patch = patch
         self._selected_patch_path = patch.source_path
         self._detail_panel.load_patch(patch)
+        self._logger.general(f"Selected patch: {patch.name}")
 
     def _on_patch_saved(self, patch: Patch) -> None:
         if self._selected_patch_path and self._selected_patch_path.exists():
@@ -237,6 +250,7 @@ class MainWindow(QMainWindow):
         self._device_panel.device.send(
             build_program_write(channel=1, data=patch.sysex_data)
         )
+        self._logger.midi(f"Sent patch: {patch.name}")
 
     def _on_load_all(self) -> None:
         reply = QMessageBox.question(
@@ -280,10 +294,12 @@ class MainWindow(QMainWindow):
         return self._synth_editor
 
     def _on_device_connected(self, port_name: str) -> None:
+        self._logger.midi(f"Connected to {port_name}")
         if self._synth_editor is not None:
             self._synth_editor.set_device_connected(True)
 
     def _on_device_disconnected(self) -> None:
+        self._logger.midi("Disconnected")
         if self._synth_editor is not None:
             self._synth_editor.set_device_connected(False)
 
