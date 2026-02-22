@@ -6,6 +6,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from ai.llm import LLMBackend, Message
 from ai.tools import TOOL_DEFINITIONS
 from midi.params import ParamMap
+from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
 from core.logger import AppLogger
 
 SYSTEM_PROMPT = """You are an AI sound designer for the Korg RK-100S 2 keytar synthesizer.
@@ -59,6 +60,8 @@ class AIController(QObject):
         device,
         param_map: ParamMap,
         logger: AppLogger,
+        sysex_buffer: SysExProgramBuffer | None = None,
+        sysex_writer: DebouncedSysExWriter | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -66,6 +69,8 @@ class AIController(QObject):
         self._device = device
         self._param_map = param_map
         self._logger = logger
+        self._sysex_buffer = sysex_buffer
+        self._sysex_writer = sysex_writer
         self._history: list[Message] = []
         self._param_state: dict[str, int] = {}
         self._stop_requested = False
@@ -133,20 +138,45 @@ class AIController(QObject):
             return f"Unknown parameter: {name}"
         if not self._device.connected:
             return "Device not connected"
+
+        sent_via = []
+
         # NRPN/CC params: send real-time MIDI
         if param.is_nrpn or param.cc_number is not None:
             msg = param.build_message(channel=1, value=value)
             for i in range(0, len(msg), 3):
                 self._device.send(msg[i:i + 3])
-        elif param.is_sysex_only:
-            return f"Set {name} = {value} (SysEx-only, update via editor UI)"
-        else:
+            sent_via.append("NRPN" if param.is_nrpn else "CC")
+
+        # SysEx params: update buffer and schedule debounced write
+        if param.sysex_offset is not None:
+            if self._sysex_buffer is not None and self._sysex_buffer.size > 0:
+                self._sysex_buffer.set_param(param, value)
+                if self._sysex_writer is not None:
+                    self._sysex_writer.schedule()
+                sent_via.append("SysEx")
+            elif not sent_via:
+                return f"Parameter {name} requires SysEx but no program is loaded"
+
+        if not sent_via:
             return f"Parameter {name} has no MIDI address"
+
         self._param_state[name] = value
         self.parameter_changed.emit(name, value)
-        return f"Set {name} = {value}"
+        return f"Set {name} = {value} (via {'+'.join(sent_via)})"
 
     def _tool_get_parameter(self, name: str) -> str:
+        param = self._param_map.get(name)
+        if param is None:
+            return f"Unknown parameter: {name}"
+        # Try reading from SysEx buffer first (most accurate)
+        if (param.sysex_offset is not None
+                and self._sysex_buffer is not None
+                and self._sysex_buffer.size > 0):
+            val = self._sysex_buffer.get_param(param)
+            if val is not None:
+                return f"{name} = {val}"
+        # Fall back to in-memory state
         if name in self._param_state:
             return f"{name} = {self._param_state[name]}"
         return f"{name} = unknown (not yet set in this session)"

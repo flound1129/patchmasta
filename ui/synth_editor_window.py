@@ -225,6 +225,8 @@ class SynthEditorWindow(QMainWindow):
             device=self._device,
             param_map=self._param_map,
             logger=self._logger,
+            sysex_buffer=self._sysex_buffer,
+            sysex_writer=self._sysex_writer,
         )
         ctrl.response_ready.connect(self._on_ai_response)
         ctrl.tool_executed.connect(self._on_ai_tool)
