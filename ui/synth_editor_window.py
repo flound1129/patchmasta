@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QHBoxLayout, QSplitter,
-    QMessageBox, QPushButton, QTabWidget,
+    QMainWindow, QWidget, QHBoxLayout, QSplitter,
+    QMessageBox, QTabWidget,
 )
 from PyQt6.QtCore import Qt
 from ui.chat_panel import ChatPanel
@@ -9,7 +9,6 @@ from ui.synth_params_panel import SynthParamsPanel
 from ui.synth_tabs import (
     TimbreSynthTab, ArpeggiatorTab, EffectsTab, VocoderTab, EQTab,
 )
-from ui.settings_dialog import SettingsDialog
 from ai.controller import AIController
 from ai.llm import ClaudeBackend, GroqBackend
 from midi.params import ParamMap
@@ -17,7 +16,6 @@ from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
 from midi.sysex import build_program_write
 from core.config import AppConfig
 from core.logger import AppLogger
-from core.theme import apply_theme
 
 
 class SynthEditorWindow(QMainWindow):
@@ -54,14 +52,12 @@ class SynthEditorWindow(QMainWindow):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left: chat panel with settings button
+        # Left: chat panel
         chat_container = QWidget()
         chat_layout = QHBoxLayout(chat_container)
         chat_layout.setContentsMargins(0, 0, 0, 0)
 
         self._chat_panel = ChatPanel()
-        self._settings_btn = QPushButton("Settings")
-        self._chat_panel.layout().itemAt(0).layout().addWidget(self._settings_btn)
         chat_layout.addWidget(self._chat_panel)
 
         # Right: tabbed parameter editor
@@ -129,7 +125,6 @@ class SynthEditorWindow(QMainWindow):
         self._chat_panel.backend_combo.currentTextChanged.connect(
             self._on_backend_changed
         )
-        self._settings_btn.clicked.connect(self._on_open_settings)
 
     # -- Parameter change handling --
 
@@ -191,20 +186,6 @@ class SynthEditorWindow(QMainWindow):
 
     def _on_backend_changed(self) -> None:
         self._ai_controller = None
-
-    def _on_open_settings(self) -> None:
-        dlg = SettingsDialog(self._config, parent=self)
-        if dlg.exec():
-            self._ai_controller = None
-            backend_label = self._config.ai_backend.capitalize()
-            idx = self._chat_panel.backend_combo.findText(backend_label)
-            if idx >= 0:
-                self._chat_panel.backend_combo.setCurrentIndex(idx)
-            # Apply new theme
-            app = QApplication.instance()
-            if app is not None:
-                apply_theme(app, self._config.theme)
-            self._chat_panel.set_theme(self._config.theme)
 
     def _get_or_create_ai_controller(self) -> AIController | None:
         if self._ai_controller is not None:

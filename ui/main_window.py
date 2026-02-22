@@ -2,7 +2,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout,
+    QApplication, QMainWindow, QWidget, QHBoxLayout,
     QSplitter, QMessageBox, QInputDialog, QProgressDialog, QPushButton,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
@@ -19,8 +19,10 @@ from ui.patch_detail import PatchDetailPanel
 from ui.device_panel import DevicePanel
 from ui.log_panel import LogPanel
 from ui.synth_editor_window import SynthEditorWindow
+from ui.settings_dialog import SettingsDialog
 from midi.params import ParamMap
 from core.config import AppConfig
+from core.theme import apply_theme
 
 APP_ROOT = Path(__file__).parent.parent
 
@@ -148,6 +150,7 @@ class MainWindow(QMainWindow):
         self._device_panel.connected.connect(self._on_device_connected)
         self._device_panel.disconnected.connect(self._on_device_disconnected)
         self._device_panel.synth_editor_requested.connect(self.open_synth_editor)
+        self._device_panel.settings_requested.connect(self._on_open_settings)
         self._logger.message_logged.connect(self._log_panel.append_message)
 
     def _refresh_library(self) -> None:
@@ -298,3 +301,29 @@ class MainWindow(QMainWindow):
         editor.show()
         editor.raise_()
         editor.activateWindow()
+
+    # -- Settings --
+
+    def _on_open_settings(self) -> None:
+        dlg = SettingsDialog(self._config, parent=self)
+        if dlg.exec():
+            # Reset AI controller so it picks up new keys/backend
+            if self._synth_editor is not None:
+                self._synth_editor._ai_controller = None
+                backend_label = self._config.ai_backend.capitalize()
+                idx = self._synth_editor._chat_panel.backend_combo.findText(backend_label)
+                if idx >= 0:
+                    self._synth_editor._chat_panel.backend_combo.setCurrentIndex(idx)
+                self._synth_editor._chat_panel.set_theme(self._config.theme)
+            app = QApplication.instance()
+            if app is not None:
+                apply_theme(app, self._config.theme)
+
+    # -- Window lifecycle --
+
+    def closeEvent(self, event) -> None:
+        if self._synth_editor is not None:
+            self._synth_editor.close()
+            self._synth_editor.deleteLater()
+            self._synth_editor = None
+        event.accept()

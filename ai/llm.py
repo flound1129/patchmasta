@@ -55,7 +55,14 @@ class GroqBackend(LLMBackend):
     def chat(self, messages: list[Message], system: str, tools: list[dict]) -> Message:
         api_messages = [{"role": "system", "content": system}]
         api_messages += [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
-        oai_tools = [{"type": "function", "function": t} for t in tools] if tools else None
+        oai_tools = [
+            {"type": "function", "function": {
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "parameters": t.get("parameters") or t.get("input_schema", {}),
+            }}
+            for t in tools
+        ] if tools else None
         kwargs = {"model": self._model, "messages": api_messages, "max_tokens": 4096}
         if oai_tools:
             kwargs["tools"] = oai_tools
