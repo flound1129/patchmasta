@@ -108,6 +108,7 @@
 ./tests/ui/test_synth_params_panel.py
 ./tests/ui/test_synth_tabs.py
 ./tools
+./tools/discover_offsets.py
 ./tools/sysex_diff.py
 ./ui
 ./ui/chat_panel.py

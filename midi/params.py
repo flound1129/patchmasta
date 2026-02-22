@@ -1,5 +1,7 @@
 from __future__ import annotations
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -941,3 +943,19 @@ class ParamMap:
 
     def nrpn_params(self) -> list[ParamDef]:
         return [p for p in self._params.values() if p.is_nrpn]
+
+    def load_offsets(self, path: Path) -> int:
+        """Load SysEx offsets from a JSON file and apply to matching params.
+
+        Returns the number of params updated.
+        """
+        if not path.exists():
+            return 0
+        offsets = json.loads(path.read_text())
+        count = 0
+        for name, offset in offsets.items():
+            param = self._params.get(name)
+            if param is not None:
+                param.sysex_offset = offset
+                count += 1
+        return count

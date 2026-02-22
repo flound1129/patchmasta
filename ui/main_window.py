@@ -106,6 +106,7 @@ class MainWindow(QMainWindow):
         self._pull_worker: PullWorker | None = None
         self._config = AppConfig()
         self._param_map = ParamMap()
+        self._param_map.load_offsets(Path.home() / ".patchmasta" / "offsets.json")
         self._synth_editor: SynthEditorWindow | None = None
         self._build_ui()
         self._connect_signals()
