@@ -31,7 +31,7 @@ class SynthEditorWindow(QMainWindow):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Synth Editor")
-        self.resize(1200, 800)
+        self.resize(1560, 800)
         self._device = device
         self._param_map = param_map
         self._config = config
@@ -114,7 +114,7 @@ class SynthEditorWindow(QMainWindow):
 
         splitter.addWidget(chat_container)
         splitter.addWidget(self._tab_widget)
-        splitter.setSizes([450, 750])
+        splitter.setSizes([500, 1060])
 
         layout.addWidget(splitter)
 

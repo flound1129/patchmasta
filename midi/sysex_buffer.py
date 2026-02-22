@@ -1,5 +1,5 @@
 from __future__ import annotations
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, QMetaObject, Qt, pyqtSignal
 
 
 class SysExProgramBuffer:
@@ -128,11 +128,15 @@ class DebouncedSysExWriter(QObject):
         self._timer.setInterval(value)
 
     def schedule(self) -> None:
-        """(Re)start the debounce timer."""
-        self._timer.start()
+        """(Re)start the debounce timer. Thread-safe via QMetaObject."""
+        QMetaObject.invokeMethod(
+            self._timer, "start", Qt.ConnectionType.AutoConnection,
+        )
 
     def cancel(self) -> None:
-        self._timer.stop()
+        QMetaObject.invokeMethod(
+            self._timer, "stop", Qt.ConnectionType.AutoConnection,
+        )
 
     @property
     def is_pending(self) -> bool:

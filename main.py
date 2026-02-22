@@ -17,7 +17,7 @@ def main():
     connect_system_theme_changed(app, config)
 
     font = app.font()
-    font.setPointSize(13)
+    font.setPointSize(14)
     app.setFont(font)
 
     # Let Ctrl+C shut down cleanly. Qt's event loop blocks Python's signal
