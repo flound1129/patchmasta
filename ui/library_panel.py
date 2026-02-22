@@ -12,6 +12,7 @@ _COLUMNS = ["Slot", "Name", "Category", "Notes", "Created"]
 
 class LibraryPanel(QWidget):
     patch_selected = pyqtSignal(object)
+    patch_double_clicked = pyqtSignal(object)
     add_bank_requested = pyqtSignal()
     add_patch_requested = pyqtSignal()
 
@@ -34,6 +35,7 @@ class LibraryPanel(QWidget):
             QHeaderView.ResizeMode.ResizeToContents
         )
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.table.cellDoubleClicked.connect(self._on_double_click)
         layout.addWidget(self.table)
 
         btn_row = QHBoxLayout()
@@ -63,6 +65,7 @@ class LibraryPanel(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(patch.notes))
             self.table.setItem(row, 4, QTableWidgetItem(patch.created))
         self.table.setSortingEnabled(True)
+        self.table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
 
     def set_device_connected(self, connected: bool) -> None:
         self._add_patch_btn.setEnabled(connected)
@@ -75,3 +78,8 @@ class LibraryPanel(QWidget):
         patch = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
         if isinstance(patch, Patch):
             self.patch_selected.emit(patch)
+
+    def _on_double_click(self, row: int, _col: int) -> None:
+        patch = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        if isinstance(patch, Patch):
+            self.patch_double_clicked.emit(patch)

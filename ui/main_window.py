@@ -136,6 +136,7 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         self._library_panel.patch_selected.connect(self._on_patch_selected)
+        self._library_panel.patch_double_clicked.connect(self._on_patch_double_clicked)
         self._library_panel.add_patch_requested.connect(self._on_pull_prompted)
         self._detail_panel.patch_saved.connect(self._on_patch_saved)
         self._device_panel.pull_requested.connect(self._on_pull_prompted)
@@ -282,6 +283,15 @@ class MainWindow(QMainWindow):
     def _on_device_disconnected(self) -> None:
         if self._synth_editor is not None:
             self._synth_editor.set_device_connected(False)
+
+    def _on_patch_double_clicked(self, patch: Patch) -> None:
+        editor = self._get_or_create_synth_editor()
+        editor.setWindowTitle(f"Synth Editor — {patch.name}")
+        if patch.sysex_data is not None:
+            editor.load_program_data(patch.sysex_data)
+        editor.show()
+        editor.raise_()
+        editor.activateWindow()
 
     def open_synth_editor(self) -> None:
         editor = self._get_or_create_synth_editor()
