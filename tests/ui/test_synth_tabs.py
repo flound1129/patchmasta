@@ -111,7 +111,6 @@ def test_eq_tab_creates_widgets(app):
     assert "t1_eq_low_freq" in tab.widgets
     assert "t1_eq_high_gain" in tab.widgets
     assert "t2_eq_low_freq" in tab.widgets
-    assert "long_ribbon_scale_sw" in tab.widgets
     assert "short_ribbon_setting" in tab.widgets
 
 

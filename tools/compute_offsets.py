@@ -5,10 +5,15 @@ Reverse-engineered from the Korg Sound Editor binary + NRPN validation.
 
 Packing formula: physical = base + logical + ceil((logical + k) / 7)
   - Timbre 1: base=18, k=3  (10/10 NRPN validation)
-  - Timbre 2: base=128, k=3 (extrapolated from T1 layout)
+  - Timbre 2: base=128, k=1 (verified via global packing model)
   - Vocoder bands: base=237, k=6 (32/32 NRPN validation)
-  - Arp section: base=384, k=3 (2/2 NRPN validation)
+  - Gap (effects/vocoder settings/ribbon/scale): base=283, k=4
+  - Arp section: base=384, k=1 (verified via global packing model)
   - Common header: direct mapping (bytes 0-17)
+
+Global packing equivalence (verified against all 50 NRPN offsets):
+  packed = (unpacked // 7) * 8 + (unpacked % 7) + 1
+  The entire program dump is packed as one continuous block from byte 0.
 
 Logical offsets derived from the Korg Sound Editor PE32 binary's
 display-name parameter table (confirmed against NRPN-discovered offsets).
@@ -202,6 +207,9 @@ TIMBRE_LOGICAL = {
     "eq_low_gain": 93,
     "eq_high_freq": 94,
     "eq_high_gain": 95,
+
+    # --- Ribbon (per-timbre, mirrored in T1 and T2) ---
+    "long_ribbon_filter_int": 91,  # Confirmed: T1→pk123, T2→pk233
 }
 
 # Vocoder band params: logical offset within vocoder band section
@@ -216,14 +224,35 @@ ARP_LOGICAL = {
     "arp_last_step": 1,
     "arp_type": 2,        # Validated: physical 387
     "arp_gate": 4,        # Validated: physical 389
-    "arp_step_gt_1": 5,   # Step gate times
-    "arp_step_gt_2": 6,
-    "arp_step_gt_3": 7,
-    "arp_step_gt_4": 8,
-    "arp_step_gt_5": 9,
-    "arp_step_gt_6": 10,
-    "arp_step_gt_7": 11,
-    "arp_step_gt_8": 12,
+    "arp_swing": 5,       # Confirmed via diff: physical 390
+    # Logical 10-14 = ribbon params (confirmed via diff)
+    "short_ribbon_mod_assign": 10,   # physical 396 (CC number, 7-bit)
+    "short_ribbon_setting": 11,      # physical 397 (bit 0)
+    "scale": 12,                      # physical 398 (confirmed via diff)
+    "long_ribbon_scale_range": 13,   # physical 399
+    "long_ribbon_pitch_range": 14,   # physical 401
+    # Step SWs are at logical 16-23 (physical 403-411)
+}
+
+# Gap section: IFX (effects), vocoder filter, ribbon, scale
+# Sits between vocoder bands (ends at packed 283) and arp (starts at packed 384)
+# base=283, k=4 → first data byte at packed 284
+GAP_LOGICAL = {
+    # IFX 1 (effect slot 1): logical 0 + params
+    "fx1_type": 0,          # Effect type (internal numbering)
+
+    # Vocoder filter params (confirmed via diff testing):
+    "vocoder_fc_offset": 2,     # Signed center=64, physical 286
+    "vocoder_resonance": 3,     # Physical 287
+    "vocoder_fc_mod_int": 4,    # Signed center=64, physical 289
+    "vocoder_ef_sens": 5,       # Physical 290
+
+    # IFX 1 params continue at logical 6+
+    # IFX 2 (effect slot 2): logical 24-47
+    "fx2_sw_type": 24,      # IFX2 on/off + type (bit-packed)
+
+    # Remaining (logical 48-87): MFX EQ, ribbon, scale, other
+    # MFX EQ at logical 48-51 (confirmed from binary extraction)
 }
 
 # Map params.py names to our naming convention
@@ -237,10 +266,50 @@ PARAMS_PY_TO_LOGICAL = {
     "arp_latch": ("arp_msb", 1),    # MSB byte at physical 384
     "arp_type": ("arp", 2),
     "arp_gate": ("arp", 4),
+    "arp_resolution": ("arp", 0),
+    "arp_last_step": ("arp", 1),
+
+    # Gap section (IFX effects + vocoder filter)
+    "fx1_type": ("gap", 0),
+    "fx1_ribbon_assign": ("gap", 40),     # pk330, confirmed via diff
+    "fx1_ribbon_polarity": ("gap", 41),   # pk331, confirmed via diff
+    "fx2_type": ("gap", 24),
+    "fx2_ribbon_assign": ("gap", 64),     # pk357, confirmed via diff
+    "fx2_ribbon_polarity": ("gap", 65),   # pk358, confirmed via diff
+    "vocoder_fc_offset": ("gap", 2),       # Signed center=64, confirmed via diff
+    "vocoder_resonance": ("gap", 3),       # Confirmed via diff
+    "vocoder_fc_mod_int": ("gap", 4),      # Signed center=64, confirmed via diff
+    "vocoder_ef_sens": ("gap", 5),         # Confirmed via diff
 
     # Vocoder SW
     "vocoder_sw": ("vocoder_header", 232),
     "vocoder_fc_mod_source": ("timbre1", 74),  # Shares byte with patch1_source
+
+    # Vocoder header params (base=237, k=6, logical 0-7)
+    "vocoder_gate_sens": ("vocoder_band", 1),       # pk239
+    "vocoder_gate_threshold": ("vocoder_band", 2),   # pk241
+    "vocoder_hpf_level": ("vocoder_band", 3),        # pk242
+    "vocoder_direct_level": ("vocoder_band", 4),     # pk243
+    "vocoder_timbre1_level": ("vocoder_band", 5),    # pk244
+    "vocoder_timbre2_level": ("vocoder_band", 6),    # pk245
+    "vocoder_level": ("vocoder_band", 7),            # pk246
+
+    # Arp extended params
+    "arp_swing": ("arp", 5),               # Confirmed via diff
+    "arp_key_sync": ("arp_msb", 6),        # HB[384] bit 6, confirmed via piano2→piano3 diff
+    "arp_step_switches": ("arp", 6),       # All 8 steps in one byte, confirmed via piano3→piano4 diff
+    "arp_octave_range": ("arp", 3),        # Arp L3 (pk388), bits 5-6, confirmed via diff
+    "scale": ("arp", 12),                  # Confirmed via diff
+
+    # Ribbon params (in arp section)
+    "short_ribbon_mod_assign": ("arp", 10),    # pk396, CC number (7-bit)
+    "short_ribbon_mod_lock": ("arp_msb2", 3),  # HB[392] bit 3 (MSB of pk396)
+    "short_ribbon_setting": ("arp", 11),       # pk397 bit 0
+    "long_ribbon_scale_range": ("arp", 13),    # pk399
+    "long_ribbon_pitch_range": ("arp", 14),    # pk401
+
+    # Ribbon filter intensity (per-timbre, stored at timbre logical 91)
+    "long_ribbon_filter_int": ("timbre1", 91), # pk123 (mirrored in T2 at pk233)
 
     # Vocoder bands
     **{f"vocoder_level_{i}": ("vocoder_band", (i-1)*2+9) for i in range(1, 17)},
@@ -283,15 +352,19 @@ def compute_physical(section: str, logical: int) -> int:
     elif section == "timbre1":
         return pack_offset(logical, base=18, k=3)
     elif section == "timbre2":
-        return pack_offset(logical, base=128, k=3)
+        return pack_offset(logical, base=128, k=1)
     elif section == "vocoder_band":
         return pack_offset(logical, base=237, k=6)
     elif section == "vocoder_header":
         return logical  # Direct physical offset
+    elif section == "gap":
+        return pack_offset(logical, base=283, k=4)
     elif section == "arp":
-        return pack_offset(logical, base=384, k=3)
+        return pack_offset(logical, base=384, k=1)
     elif section == "arp_msb":
-        return 384  # MSB byte for arp section (bit-packed booleans)
+        return 384  # HB byte for arp section (bit-packed booleans)
+    elif section == "arp_msb2":
+        return 392  # 2nd HB byte in arp section (bit-packed: mod_lock, etc.)
     else:
         raise ValueError(f"Unknown section: {section}")
 
@@ -344,7 +417,7 @@ def main():
         sections.setdefault(section, []).append(name)
 
     for section in ["common", "timbre1", "timbre2", "vocoder_header",
-                     "vocoder_band", "arp", "arp_msb"]:
+                     "vocoder_band", "gap", "arp", "arp_msb", "arp_msb2"]:
         params = sections.get(section, [])
         if not params:
             continue
