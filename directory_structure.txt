@@ -109,8 +109,11 @@
 ./tests/ui/test_synth_tabs.py
 ./tools
 ./tools/compute_offsets.py
+./tools/decode_params.py
 ./tools/discover_offsets.py
 ./tools/extract_binary_params.py
+./tools/file_format.py
+./tools/patch_diff.py
 ./tools/sysex_diff.py
 ./ui
 ./ui/chat_panel.py
