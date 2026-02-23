@@ -131,7 +131,16 @@ class SynthEditorWindow(QMainWindow):
     def _on_user_param_change(self, name: str, value: int) -> None:
         """User adjusted a synth control widget -- send MIDI to device."""
         param = self._param_map.get(name)
-        if param is None or not self._device.connected:
+        if param is None:
+            # Dynamic FX effect param (not in ParamMap) — SysEx-only write
+            if self._device.connected:
+                packed = self._effects_tab.get_fx_sysex_offset(name)
+                if packed is not None and self._sysex_buffer.size > 0:
+                    self._sysex_buffer.set_byte(packed, value)
+                    self._sysex_writer.schedule()
+            return
+
+        if not self._device.connected:
             return
 
         # NRPN/CC params: send real-time MIDI
@@ -158,12 +167,18 @@ class SynthEditorWindow(QMainWindow):
     def load_program_data(self, data: bytes) -> None:
         """Load program SysEx data into buffer and update all UI widgets."""
         self._sysex_buffer.load(data)
-        # Update UI from buffer for all params that have sysex_offset
+        # Update UI from buffer for all ParamMap params (includes fx1_type/fx2_type,
+        # which triggers dynamic FX widget rebuild in EffectsTab)
         for p in self._param_map.list_all():
             if p.sysex_offset is not None:
                 val = self._sysex_buffer.get_param(p)
                 if val is not None:
                     self._dispatch_param_to_ui(p.name, val)
+        # Now populate dynamic FX params (rebuilt above when fx_type was dispatched)
+        for name, packed in self._effects_tab.fx_sysex_items():
+            if packed < self._sysex_buffer.size:
+                val = self._sysex_buffer.get_byte(packed)
+                self._effects_tab.on_param_changed(name, val)
 
     def _dispatch_param_to_ui(self, name: str, value: int) -> None:
         """Update the correct tab widget for a parameter change."""

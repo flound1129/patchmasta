@@ -950,7 +950,7 @@ _PARAMS: list[ParamDef] = [
     ParamDef("fx1_type", "Master Effect 1 Type", "FX1 effect type selector",
              0, 17, group="effects", section="fx1",
              display_name="FX Type",
-             sysex_offset=284,
+             sysex_offset=327,  # Gap L38, confirmed empirically 2026-02-23
              value_labels={0: "Effect Off", 1: "Compressor", 2: "Filter",
                            3: "4Band EQ", 4: "Distortion", 5: "Decimator",
                            6: "Delay", 7: "L/C/R Delay", 8: "Auto Panning Delay",
@@ -971,7 +971,7 @@ _PARAMS: list[ParamDef] = [
     ParamDef("fx2_type", "Master Effect 2 Type", "FX2 effect type selector",
              0, 17, group="effects", section="fx2",
              display_name="FX Type",
-             sysex_offset=311,
+             sysex_offset=355,  # Gap L62, confirmed empirically 2026-02-23
              value_labels={0: "Effect Off", 1: "Compressor", 2: "Filter",
                            3: "4Band EQ", 4: "Distortion", 5: "Decimator",
                            6: "Delay", 7: "L/C/R Delay", 8: "Auto Panning Delay",

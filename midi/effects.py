@@ -3,9 +3,15 @@
 Defines the 17 effect types (plus Off) with their per-type parameter metadata,
 sourced from the Parameter Guide pp37-54 and confirmed against the Sound Editor
 binary (v6 field in the param table at 0x0012D7EC marks ribbon_assignable=True).
-SysEx byte offsets are NOT included here -- added later via device diffing.
+
+SysEx offset mapping (empirically confirmed via patch diffing, 2026-02-23):
+  FX1 type ID:  Gap L38, packed=327
+  FX2 type ID:  Gap L62, packed=355
+  FX1 slot N:   Gap L(42+N), packed=fx_param_packed(1, N)
+  FX2 slot N:   Gap L(66+N), packed=fx_param_packed(2, N)
 """
 from __future__ import annotations
+import math
 from dataclasses import dataclass, field
 
 
@@ -492,3 +498,30 @@ EFFECT_TYPES: dict[int, EffectTypeDef] = {
 def get_effect_type(type_id: int) -> EffectTypeDef | None:
     """Return the EffectTypeDef for *type_id*, or None if unknown."""
     return EFFECT_TYPES.get(type_id)
+
+
+# ---------------------------------------------------------------------------
+# SysEx offset helpers (Gap section: base=283, k=4)
+# Empirically confirmed via patch diffing against RK-100S 2 device.
+# ---------------------------------------------------------------------------
+_GAP_BASE = 283
+_GAP_K = 4
+
+# Packed SysEx positions for FX type selectors
+FX1_TYPE_PACKED: int = _GAP_BASE + 38 + math.ceil((38 + _GAP_K) / 7)  # = 327
+FX2_TYPE_PACKED: int = _GAP_BASE + 62 + math.ceil((62 + _GAP_K) / 7)  # = 355
+
+# Gap logical bases for FX param slots
+FX1_PARAMS_LOGICAL_BASE = 42   # Gap L42 = FX1 slot 0 (dry_wet)
+FX2_PARAMS_LOGICAL_BASE = 66   # Gap L66 = FX2 slot 0 (dry_wet)
+
+
+def fx_param_packed(slot: int, slot_index: int) -> int:
+    """Return packed SysEx offset for effect param at *slot* (1 or 2), *slot_index*.
+
+    Example: fx_param_packed(1, 0) == 332  (FX1 dry_wet, Gap L42)
+             fx_param_packed(2, 0) == 359  (FX2 dry_wet, Gap L66)
+    """
+    base = FX1_PARAMS_LOGICAL_BASE if slot == 1 else FX2_PARAMS_LOGICAL_BASE
+    logical = base + slot_index
+    return _GAP_BASE + logical + math.ceil((logical + _GAP_K) / 7)

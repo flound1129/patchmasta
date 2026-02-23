@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt as QtCore_Qt
 from midi.params import ParamMap, ParamDef
-from midi.effects import EFFECT_TYPES, EffectParam, get_effect_type
+from midi.effects import EFFECT_TYPES, EffectParam, get_effect_type, fx_param_packed
 from ui.widgets import ParamCombo, ParamSlider
 
 
@@ -220,6 +220,8 @@ class EffectsTab(QWidget):
         }
         # Container widgets for dynamic areas (cleared on type change)
         self._dynamic_containers: dict[int, QWidget] = {}
+        # widget_name → packed SysEx offset for active dynamic params
+        self._fx_packed_map: dict[str, int] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -272,10 +274,11 @@ class EffectsTab(QWidget):
                     w.setParent(None)
                     w.deleteLater()
 
-        # Clear tracking dict (effect params only)
+        # Clear tracking dicts (effect params only)
         old_names = list(self._dynamic_widgets[slot].keys())
         for name in old_names:
             self._widgets.pop(name, None)
+            self._fx_packed_map.pop(name, None)
         self._dynamic_widgets[slot].clear()
         # Remove ribbon_assign from _widgets (will be rebuilt below)
         self._widgets.pop(f"fx{slot}_ribbon_assign", None)
@@ -314,12 +317,21 @@ class EffectsTab(QWidget):
             grid.addWidget(w, row, col * 2 + 1)
             self._dynamic_widgets[slot][widget_name] = w
             self._widgets[widget_name] = w
+            self._fx_packed_map[widget_name] = fx_param_packed(slot, ep.slot_index)
 
         container.layout().addWidget(group)
 
     @property
     def widgets(self) -> dict:
         return self._widgets
+
+    def get_fx_sysex_offset(self, name: str) -> int | None:
+        """Return packed SysEx offset for a dynamic FX param, or None if unknown."""
+        return self._fx_packed_map.get(name)
+
+    def fx_sysex_items(self) -> list[tuple[str, int]]:
+        """Return (widget_name, packed_offset) for all currently-active dynamic FX params."""
+        return list(self._fx_packed_map.items())
 
     def on_param_changed(self, name: str, value: int) -> None:
         # Check if this is a type change that should trigger dynamic rebuild
