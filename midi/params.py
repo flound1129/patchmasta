@@ -16,7 +16,8 @@ class ParamDef:
     # SysEx program buffer addressing
     sysex_offset: int | None = None
     sysex_signed: bool = False
-    sysex_bit: int | None = None  # bit position within byte (for bit-packed params)
+    sysex_bit: int | None = None      # bit position within byte (for single-bit params)
+    sysex_bit_mask: int | None = None  # bitmask for multi-bit fields sharing a byte
     # Display metadata
     display_name: str = ""
     section: str = ""
@@ -1086,11 +1087,11 @@ _PARAMS: list[ParamDef] = [
              value_labels={0: "Pitch", 1: "Modulation"}),
     ParamDef("short_ribbon_mod_assign", "Short Ribbon Mod Assign", "CC number for modulation",
              0, 127, group="ribbon", section="short_ribbon",
-             sysex_offset=396,
+             sysex_offset=396, sysex_bit_mask=0x7F,  # bits 0-6; bit 7 = mod_lock
              display_name="Mod Assign"),
     ParamDef("short_ribbon_mod_lock", "Short Ribbon Mod Lock", "Lock on/off for modulation",
              0, 1, group="ribbon", section="short_ribbon",
-             sysex_offset=392, sysex_bit=3,  # HB byte bit 3 (MSB of pk396)
+             sysex_offset=396, sysex_bit=7,  # bit 7 of pk396; confirmed empirically 2026-02-23
              display_name="Mod Lock",
              value_labels={0: "Lock Off", 1: "Lock On"}),
 

@@ -124,6 +124,32 @@ def test_set_param_empty_buffer_raises():
         buf.set_param(param, 42)
 
 
+def test_get_param_bit_mask():
+    """sysex_bit_mask: get_param returns only masked bits."""
+    param = ParamDef("test", "Test", "test", 0, 127,
+                     sysex_offset=2, sysex_bit_mask=0x7F)
+    data = bytearray(8)
+    data[2] = 0b10000001  # bit 7 = lock On, CC# = 1
+    buf = SysExProgramBuffer(data)
+    assert buf.get_param(param) == 1  # only bits 0-6
+
+
+def test_set_param_bit_mask_preserves_other_bits():
+    """sysex_bit_mask: set_param does read-modify-write, preserving unmasked bits."""
+    mod_assign = ParamDef("mod_assign", "Mod Assign", "test", 0, 127,
+                          sysex_offset=2, sysex_bit_mask=0x7F)
+    mod_lock = ParamDef("mod_lock", "Mod Lock", "test", 0, 1,
+                        sysex_offset=2, sysex_bit=7)
+    data = bytearray(8)
+    data[2] = 0b10000001  # lock=On (bit 7), CC#=1
+    buf = SysExProgramBuffer(data)
+    # Change CC# to 64 — lock bit should be preserved
+    buf.set_param(mod_assign, 64)
+    assert buf.get_byte(2) == 0b11000000  # bit 7 still set, CC#=64
+    assert buf.get_param(mod_assign) == 64
+    assert buf.get_param(mod_lock) == 127  # still On
+
+
 def test_debounced_writer_properties(qtbot):
     writer = DebouncedSysExWriter(debounce_ms=200)
     assert writer.debounce_ms == 200
