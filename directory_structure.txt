@@ -41,6 +41,7 @@
 ./main.py
 ./midi
 ./midi/device.py
+./midi/effects.py
 ./midi/__init__.py
 ./midi/params.py
 ./midi/sysex_buffer.py
@@ -87,6 +88,7 @@
 ./tests/midi
 ./tests/midi/__init__.py
 ./tests/midi/test_device.py
+./tests/midi/test_effects.py
 ./tests/midi/test_params.py
 ./tests/midi/test_sysex_buffer.py
 ./tests/midi/test_sysex.py
