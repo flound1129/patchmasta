@@ -18,6 +18,9 @@ class ParamDef:
     sysex_signed: bool = False
     sysex_bit: int | None = None      # bit position within byte (for single-bit params)
     sysex_bit_mask: int | None = None  # bitmask for multi-bit fields sharing a byte
+    sysex_bit_shift: int = 0           # right-shift applied after masking (for nibble fields)
+    sysex_value_bias: int = 0          # added to SysEx value when reading (subtracted when writing)
+    sysex_value_map: dict[int, int] | None = None  # NRPN→SysEx mapping; inverted for reads
     # Display metadata
     display_name: str = ""
     section: str = ""
@@ -57,17 +60,18 @@ _PARAMS: list[ParamDef] = [
     ParamDef("arp_on_off", "Arpeggiator on/off", "Enables/disables the arpeggiator",
              0, 127, group="arpeggiator", section="arpeggiator",
              nrpn_msb=0x00, nrpn_lsb=0x02,
-             sysex_offset=384, sysex_bit=0,
+             sysex_offset=385, sysex_bit=7,  # confirmed empirically 2026-02-23
              value_labels={0: "Off", 64: "On"}),
     ParamDef("arp_latch", "Arpeggiator latch", "Holds the arpeggio after releasing keys",
              0, 127, group="arpeggiator", section="arpeggiator",
              nrpn_msb=0x00, nrpn_lsb=0x04,
-             sysex_offset=384, sysex_bit=1,
+             sysex_offset=388, sysex_bit=7,  # confirmed empirically 2026-02-23
              value_labels={0: "Off", 64: "On"}),
     ParamDef("arp_type", "Arpeggiator type", "Pattern: Up, Down, Alt1, Alt2, Random, Trigger",
              0, 127, group="arpeggiator", section="arpeggiator",
              nrpn_msb=0x00, nrpn_lsb=0x07,
-             sysex_offset=387,
+             sysex_offset=387, sysex_bit_mask=0x07,  # bits 0-2; confirmed empirically 2026-02-23
+             sysex_value_map={0: 0, 22: 1, 43: 2, 64: 3, 86: 4, 107: 5},
              value_labels={0: "Up", 22: "Down", 43: "Alt1", 64: "Alt2", 86: "Random", 107: "Trigger"}),
     ParamDef("arp_gate", "Arpeggiator gate time", "Duration of each arpeggio note",
              0, 127, group="arpeggiator", section="arpeggiator",
@@ -76,7 +80,8 @@ _PARAMS: list[ParamDef] = [
     ParamDef("arp_select", "Arpeggiator timbre select", "Which timbre the arp applies to",
              0, 127, group="arpeggiator", section="arpeggiator",
              nrpn_msb=0x00, nrpn_lsb=0x0B,
-             sysex_offset=10,
+             sysex_offset=8, sysex_bit_mask=0x30, sysex_bit_shift=4,  # bits 4-5; confirmed 2026-02-23
+             sysex_value_map={0: 0, 43: 1, 86: 2},
              value_labels={0: "Timbre 1", 43: "Timbre 2", 86: "Timbre 1+2"}),
 
     # -----------------------------------------------------------------------
@@ -922,11 +927,11 @@ _PARAMS: list[ParamDef] = [
              display_name="Octave Range"),
     ParamDef("arp_resolution", "Arp Resolution", "Note spacing relative to tempo",
              0, 127, group="arpeggiator", section="arpeggiator",
-             sysex_offset=385,
+             sysex_offset=387, sysex_bit_mask=0xF0, sysex_bit_shift=4,  # bits 4-7; confirmed 2026-02-23
              display_name="Resolution"),
     ParamDef("arp_last_step", "Arp Last Step", "Number of active steps",
              1, 8, group="arpeggiator", section="arpeggiator",
-             sysex_offset=386,
+             sysex_offset=388, sysex_bit_mask=0x07, sysex_value_bias=1,  # bits 0-2, stored as value-1; confirmed 2026-02-23
              display_name="Last Step"),
     ParamDef("arp_key_sync", "Arp Key Sync", "Sync arpeggio to keyboard",
              0, 1, group="arpeggiator", section="arpeggiator",

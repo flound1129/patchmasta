@@ -64,7 +64,8 @@ class SysExProgramBuffer:
 
         Returns None if the param has no sysex_offset or buffer is empty.
         For single-bit params (sysex_bit set), extracts the bit and returns 0 or 127.
-        For multi-bit masked params (sysex_bit_mask set), returns the masked value.
+        For multi-bit masked params (sysex_bit_mask set), applies mask+shift, then
+        sysex_value_map (inverse lookup) or sysex_value_bias to convert to NRPN range.
         """
         if param_def.sysex_offset is None or not self._data:
             return None
@@ -75,7 +76,11 @@ class SysExProgramBuffer:
             bit_val = (byte_val >> param_def.sysex_bit) & 1
             return 127 if bit_val else 0
         if param_def.sysex_bit_mask is not None:
-            return self._data[param_def.sysex_offset] & param_def.sysex_bit_mask
+            raw = (self._data[param_def.sysex_offset] & param_def.sysex_bit_mask) >> param_def.sysex_bit_shift
+            if param_def.sysex_value_map is not None:
+                inv = {v: k for k, v in param_def.sysex_value_map.items()}
+                return inv.get(raw, raw)
+            return raw + param_def.sysex_value_bias
         if param_def.sysex_signed:
             return self.get_signed(param_def.sysex_offset)
         return self.get_byte(param_def.sysex_offset)
@@ -84,8 +89,9 @@ class SysExProgramBuffer:
         """Write a parameter value using its sysex_offset metadata.
 
         For single-bit params (sysex_bit set), sets or clears the bit.
-        For multi-bit masked params (sysex_bit_mask set), read-modify-writes
-        only the masked bits, preserving other bits in the byte.
+        For multi-bit masked params (sysex_bit_mask set), converts the NRPN value
+        via sysex_value_map or sysex_value_bias, then read-modify-writes only the
+        masked bits, preserving other bits in the byte.
         """
         if param_def.sysex_offset is None:
             raise ValueError(f"Parameter '{param_def.name}' has no sysex_offset")
@@ -100,8 +106,13 @@ class SysExProgramBuffer:
                 self._dirty = True
             return
         if param_def.sysex_bit_mask is not None:
+            if param_def.sysex_value_map is not None:
+                sysex_val = param_def.sysex_value_map.get(value, value)
+            else:
+                sysex_val = value - param_def.sysex_value_bias
             current = self._data[param_def.sysex_offset]
-            new_val = (current & ~param_def.sysex_bit_mask) | (value & param_def.sysex_bit_mask)
+            masked = (sysex_val << param_def.sysex_bit_shift) & param_def.sysex_bit_mask
+            new_val = (current & ~param_def.sysex_bit_mask) | masked
             if current != new_val:
                 self._data[param_def.sysex_offset] = new_val
                 self._dirty = True
