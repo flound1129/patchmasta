@@ -291,7 +291,9 @@ class EffectsTab(QWidget):
         ribbon_name = f"fx{slot}_ribbon_assign"
         ribbon_params = typedef.ribbon_assigns() if typedef else []
         labels = ["Assign Off"] + [p.display_name for p in ribbon_params]
-        ranges = [(i, i) for i in range(len(labels))]
+        # SysEx encoding: 31 = Assign Off sentinel, slot_index = assigned param
+        sysex_vals = [31] + [p.slot_index for p in ribbon_params]
+        ranges = [(v, v) for v in sysex_vals]
         ribbon_widget = ParamCombo(ribbon_name, labels, ranges, self._on_user_change)
         ribbon_group = QGroupBox("Ribbon Assign")
         ribbon_layout = QGridLayout(ribbon_group)

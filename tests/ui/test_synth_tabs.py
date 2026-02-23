@@ -249,3 +249,43 @@ def test_effects_tab_ribbon_assign_updates_on_type_switch(app):
     assert w.itemText(1) == "Dry/Wet"
     assert w.itemText(2) == "Sensitivity"
     assert w.itemText(3) == "Attack"
+
+
+def test_effects_tab_ribbon_assign_sysex_encoding(app):
+    """Ribbon assign combo emits SysEx values: 31=Assign Off, slot_index for params.
+
+    Empirically confirmed: fx1_ribbon_assign=0 means Dry/Wet (slot 0 for Compressor),
+    fx1_ribbon_assign=31 means Assign Off. Encoding is slot_index, not UI index.
+    """
+    from ui.widgets import combo_index_to_value
+    pm = ParamMap()
+    changes = []
+    tab = EffectsTab(param_map=pm, on_user_change=lambda n, v: changes.append((n, v)))
+    tab.on_param_changed("fx1_type", 1)  # Compressor
+    w = tab.widgets["fx1_ribbon_assign"]
+    # Item 1 = "Dry/Wet" → SysEx value 0 (slot_index of dry_wet in Compressor)
+    w.setCurrentIndex(1)
+    assert changes[-1] == ("fx1_ribbon_assign", 0)
+    # Item 0 = "Assign Off" → SysEx value 31
+    w.setCurrentIndex(0)
+    assert changes[-1] == ("fx1_ribbon_assign", 31)
+    # Item 2 = "Sensitivity" → SysEx value 2 (slot_index of sensitivity)
+    w.setCurrentIndex(2)
+    assert changes[-1] == ("fx1_ribbon_assign", 2)
+    # Item 3 = "Attack" → SysEx value 3 (slot_index of attack)
+    w.setCurrentIndex(3)
+    assert changes[-1] == ("fx1_ribbon_assign", 3)
+
+
+def test_effects_tab_ribbon_assign_set_value(app):
+    """set_value with SysEx value selects the correct combo option."""
+    pm = ParamMap()
+    tab = EffectsTab(param_map=pm)
+    tab.on_param_changed("fx1_type", 1)  # Compressor
+    w = tab.widgets["fx1_ribbon_assign"]
+    w.set_value(31)   # Assign Off
+    assert w.currentText() == "Assign Off"
+    w.set_value(0)    # Dry/Wet (slot_index=0)
+    assert w.currentText() == "Dry/Wet"
+    w.set_value(2)    # Sensitivity (slot_index=2)
+    assert w.currentText() == "Sensitivity"
