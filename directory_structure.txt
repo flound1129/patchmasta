@@ -18,6 +18,7 @@
 ./.claude/settings.local.json
 ./conftest.py
 ./core
+./core/chat_db.py
 ./core/config.py
 ./core/__init__.py
 ./core/logger.py
@@ -81,6 +82,7 @@
 ./tests/audio/test_engine.py
 ./tests/core
 ./tests/core/__init__.py
+./tests/core/test_chat_db.py
 ./tests/core/test_config.py
 ./tests/core/test_logger.py
 ./tests/core/test_theme.py
@@ -92,6 +94,9 @@
 ./tests/midi/test_params.py
 ./tests/midi/test_sysex_buffer.py
 ./tests/midi/test_sysex.py
+./tests/tools
+./tests/tools/__init__.py
+./tests/tools/test_file_format.py
 ./tests/model
 ./tests/model/__init__.py
 ./tests/model/test_bank.py

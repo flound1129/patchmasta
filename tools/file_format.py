@@ -129,6 +129,61 @@ def read_patch(path: Path) -> bytes:
     return data[FILE_HEADER_SIZE:FILE_HEADER_SIZE + PROGRAM_DATA_SIZE]
 
 
+_FILE_HEADER = bytes.fromhex(
+    "31323130305067442000f001000001000300000001000000f0010000ffffffff"
+)
+_FF_PAD_START = 474
+
+
+def sysex_to_prog_bytes(sysex: bytes) -> bytes:
+    """Convert packed SysEx buffer data to a complete .rk100s2_prog file.
+
+    *sysex* is the 496-byte packed SysEx payload (as stored in
+    ``SysExProgramBuffer``).  Returns 528 bytes ready to write to disk.
+    """
+    if len(sysex) < PROGRAM_DATA_SIZE:
+        raise ValueError(f"SysEx data too short: {len(sysex)} bytes "
+                         f"(need {PROGRAM_DATA_SIZE})")
+    file_data = bytearray(PROGRAM_DATA_SIZE)
+    # Common header: direct mapping (positions 0-17)
+    for p in range(18):
+        file_data[p] = sysex[p]
+    # Data section: skip HB bytes, map to file positions
+    for p in range(18, min(len(sysex), PROGRAM_DATA_SIZE)):
+        if p % 8 != 0:
+            fp = packed_to_file(p)
+            if fp is not None and fp < PROGRAM_DATA_SIZE:
+                file_data[fp] = sysex[p]
+    # Fixed 0xFF padding at end
+    for i in range(_FF_PAD_START, PROGRAM_DATA_SIZE):
+        file_data[i] = 0xFF
+    return bytes(_FILE_HEADER) + bytes(file_data)
+
+
+def prog_file_to_sysex(file_data: bytes) -> bytes:
+    """Convert 496-byte .rk100s2_prog program data to packed SysEx format.
+
+    *file_data* is the 496 bytes after the 32-byte header (as returned by
+    ``read_patch``).  Returns 496 bytes suitable for ``SysExProgramBuffer.load``.
+    """
+    if len(file_data) < PROGRAM_DATA_SIZE:
+        raise ValueError(f"File data too short: {len(file_data)} bytes "
+                         f"(need {PROGRAM_DATA_SIZE})")
+    sysex = bytearray(PROGRAM_DATA_SIZE)
+    # Common header: direct mapping
+    for p in range(18):
+        sysex[p] = file_data[p]
+    # Data section: fill non-HB positions from file positions
+    for p in range(18, PROGRAM_DATA_SIZE):
+        if p % 8 == 0:
+            sysex[p] = 0  # HB byte
+        else:
+            fp = packed_to_file(p)
+            if fp is not None and fp < len(file_data):
+                sysex[p] = file_data[fp]
+    return bytes(sysex)
+
+
 def analyze_patch(data: bytes) -> None:
     """Print a structured analysis of patch data."""
     # Name

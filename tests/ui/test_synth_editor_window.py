@@ -66,3 +66,25 @@ def test_user_param_change_skips_when_disconnected(app):
     )
     win._on_user_param_change("arp_on_off", 127)
     assert not mock_device.send.called
+
+
+def test_save_action_disabled_initially(editor):
+    assert not editor._save_action.isEnabled()
+
+
+def test_save_action_enabled_after_load(editor):
+    editor.load_program_data(bytes(496))
+    assert editor._save_action.isEnabled()
+
+
+def test_save_patch_writes_file(editor, tmp_path):
+    """Verify that saving writes a valid 528-byte .rk100s2_prog file."""
+    from tools.file_format import sysex_to_prog_bytes
+    editor.load_program_data(bytes(496))
+    dest = tmp_path / "test.rk100s2_prog"
+    # Write directly (same logic as _on_save_patch without the dialog)
+    file_bytes = sysex_to_prog_bytes(editor._sysex_buffer.to_bytes())
+    dest.write_bytes(file_bytes)
+    assert dest.exists()
+    assert len(dest.read_bytes()) == 528  # 32-byte header + 496 data
+    assert dest.read_bytes()[:8] == b"12100PgD"

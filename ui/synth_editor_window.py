@@ -1,9 +1,11 @@
 from __future__ import annotations
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QSplitter,
-    QMessageBox, QTabWidget,
+    QMessageBox, QTabWidget, QToolBar, QFileDialog,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction
 from ui.chat_panel import ChatPanel
 from ui.synth_params_panel import SynthParamsPanel
 from ui.synth_tabs import (
@@ -13,8 +15,10 @@ from ai.controller import AIController
 from ai.llm import ClaudeBackend, GroqBackend
 from midi.params import ParamMap
 from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
-from midi.sysex import build_program_write
+from midi.sysex import build_program_write, extract_patch_name
+from tools.file_format import sysex_to_prog_bytes
 from core.config import AppConfig
+from core.chat_db import ChatHistoryDB
 from core.logger import AppLogger
 
 
@@ -37,6 +41,8 @@ class SynthEditorWindow(QMainWindow):
         self._config = config
         self._logger = logger
         self._ai_controller: AIController | None = None
+        self._chat_db = ChatHistoryDB()
+        self._conversation_id: int | None = None
         self._sysex_buffer = SysExProgramBuffer()
         self._sysex_writer = DebouncedSysExWriter(
             debounce_ms=getattr(config, "sysex_write_debounce_ms", 150)
@@ -118,6 +124,15 @@ class SynthEditorWindow(QMainWindow):
 
         layout.addWidget(splitter)
 
+        # Toolbar
+        toolbar = QToolBar("File")
+        toolbar.setMovable(False)
+        self.addToolBar(toolbar)
+        self._save_action = QAction("Save Patch...", self)
+        self._save_action.setEnabled(False)
+        self._save_action.triggered.connect(self._on_save_patch)
+        toolbar.addAction(self._save_action)
+
     def _connect_signals(self) -> None:
         self._chat_panel.message_sent.connect(self._on_chat_message)
         self._chat_panel.match_requested.connect(self._on_match_sound)
@@ -167,6 +182,7 @@ class SynthEditorWindow(QMainWindow):
     def load_program_data(self, data: bytes) -> None:
         """Load program SysEx data into buffer and update all UI widgets."""
         self._sysex_buffer.load(data)
+        self._save_action.setEnabled(True)
         # Update UI from buffer for all ParamMap params (includes fx1_type/fx2_type,
         # which triggers dynamic FX widget rebuild in EffectsTab)
         for p in self._param_map.list_all():
@@ -189,6 +205,26 @@ class SynthEditorWindow(QMainWindow):
         self._effects_tab.on_param_changed(name, value)
         self._vocoder_tab.on_param_changed(name, value)
         self._eq_tab.on_param_changed(name, value)
+
+    def _on_save_patch(self) -> None:
+        """Save the current program buffer to a .rk100s2_prog file."""
+        if self._sysex_buffer.size == 0:
+            return
+        sysex_data = self._sysex_buffer.to_bytes()
+        name = extract_patch_name(sysex_data) or "patch"
+        suggested = name.strip().replace(" ", "_") + ".rk100s2_prog"
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Patch", suggested,
+            "RK-100S 2 Patch (*.rk100s2_prog)",
+        )
+        if not path:
+            return
+        try:
+            file_bytes = sysex_to_prog_bytes(sysex_data)
+            Path(path).write_bytes(file_bytes)
+            self._logger.info(f"Saved patch to {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", str(e))
 
     def set_device_connected(self, connected: bool) -> None:
         self._chat_panel.set_device_connected(connected)
@@ -229,18 +265,23 @@ class SynthEditorWindow(QMainWindow):
         ctrl.error.connect(self._on_ai_error)
         ctrl.parameter_changed.connect(self._dispatch_param_to_ui)
         self._ai_controller = ctrl
+        self._conversation_id = self._chat_db.add_conversation(backend_name)
         return ctrl
 
     def _on_chat_message(self, text: str) -> None:
         self._chat_panel.append_user_message(text)
         ctrl = self._get_or_create_ai_controller()
         if ctrl:
+            self._chat_db.add_message(self._conversation_id, "user", text)
             self._chat_panel.set_thinking(True)
             ctrl.send_message(text)
 
     def _on_match_sound(self, wav_path: str) -> None:
         ctrl = self._get_or_create_ai_controller()
         if ctrl:
+            self._chat_db.add_message(
+                self._conversation_id, "user", "Match sound", wav_path=wav_path
+            )
             self._chat_panel.set_thinking(True)
             ctrl.match_sound(wav_path)
 
@@ -250,10 +291,16 @@ class SynthEditorWindow(QMainWindow):
         self._chat_panel.set_thinking(False)
 
     def _on_ai_response(self, text: str) -> None:
+        if self._conversation_id is not None:
+            self._chat_db.add_message(self._conversation_id, "assistant", text)
         self._chat_panel.append_ai_message(text)
         self._chat_panel.set_thinking(False)
 
     def _on_ai_tool(self, tool_name: str, result: str) -> None:
+        if self._conversation_id is not None:
+            self._chat_db.add_message(
+                self._conversation_id, "tool", result, tool_name=tool_name
+            )
         self._chat_panel.append_tool_message(tool_name, result)
 
     def _on_ai_error(self, error: str) -> None:
