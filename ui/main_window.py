@@ -4,6 +4,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QSplitter, QMessageBox, QInputDialog, QProgressDialog, QPushButton,
+    QFileDialog,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import time
@@ -12,6 +13,7 @@ from midi.sysex import (
     build_program_change, build_slot_messages, build_program_dump_request,
     build_program_write, parse_program_dump, extract_patch_name, NUM_PROGRAMS,
 )
+from tools.file_format import read_patch, prog_file_to_sysex
 from model.patch import Patch
 from model.library import Library
 from ui.library_panel import LibraryPanel
@@ -154,6 +156,7 @@ class MainWindow(QMainWindow):
         self._library_panel.patch_selected.connect(self._on_patch_selected)
         self._library_panel.patch_double_clicked.connect(self._on_patch_double_clicked)
         self._library_panel.add_patch_requested.connect(self._on_pull_prompted)
+        self._library_panel.load_file_requested.connect(self._on_load_file)
         self._detail_panel.patch_saved.connect(self._on_patch_saved)
         self._device_panel.pull_requested.connect(self._on_pull_prompted)
         self._device_panel.send_requested.connect(self._on_send_patch)
@@ -184,6 +187,25 @@ class MainWindow(QMainWindow):
         else:
             self._library.save_patch(patch)
         self._refresh_library()
+
+    def _on_load_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Patch File", "",
+            "RK-100S 2 Patch (*.rk100s2_prog);;All Files (*)",
+        )
+        if not path:
+            return
+        try:
+            file_data = read_patch(Path(path))
+            sysex_data = prog_file_to_sysex(file_data)
+            name = extract_patch_name(sysex_data) or Path(path).stem
+            patch = Patch(name=name, sysex_data=sysex_data)
+            patch.source_path = Path(path)
+            self._library.save_patch(patch)
+            self._refresh_library()
+            self._logger.general(f"Loaded patch from {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Load Error", str(e))
 
     def _start_pull(self, slots: list[int]) -> None:
         device = self._device_panel.device

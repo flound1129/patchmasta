@@ -24,6 +24,18 @@ def test_library_panel_sorting_enabled(app):
     panel = LibraryPanel()
     assert panel.table.isSortingEnabled()
 
+def test_load_file_button_exists_and_emits_signal(app):
+    from unittest.mock import MagicMock
+    from ui.library_panel import LibraryPanel
+    panel = LibraryPanel()
+    assert panel._load_file_btn is not None
+    assert panel._load_file_btn.isEnabled()
+    spy = MagicMock()
+    panel.load_file_requested.connect(spy)
+    panel._load_file_btn.click()
+    assert spy.called
+
+
 def test_library_panel_columns(app):
     from ui.library_panel import LibraryPanel
     panel = LibraryPanel()

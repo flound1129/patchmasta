@@ -15,6 +15,7 @@ class LibraryPanel(QWidget):
     patch_double_clicked = pyqtSignal(object)
     add_bank_requested = pyqtSignal()
     add_patch_requested = pyqtSignal()
+    load_file_requested = pyqtSignal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -42,10 +43,13 @@ class LibraryPanel(QWidget):
         add_bank_btn = QPushButton("+ Bank")
         self._add_patch_btn = QPushButton("+ Patch from Device")
         self._add_patch_btn.setEnabled(False)
+        self._load_file_btn = QPushButton("Load File...")
         add_bank_btn.clicked.connect(self.add_bank_requested)
         self._add_patch_btn.clicked.connect(self.add_patch_requested)
+        self._load_file_btn.clicked.connect(self.load_file_requested)
         btn_row.addWidget(add_bank_btn)
         btn_row.addWidget(self._add_patch_btn)
+        btn_row.addWidget(self._load_file_btn)
         layout.addLayout(btn_row)
 
     def populate(self, banks: list[Bank], patches: list[Patch]) -> None:
