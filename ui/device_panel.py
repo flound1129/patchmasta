@@ -35,6 +35,7 @@ class DevicePanel(QWidget):
 
         conn_group = QGroupBox("Device")
         conn_layout = QVBoxLayout(conn_group)
+        conn_layout.setContentsMargins(8, 16, 8, 8)
 
         self.port_combo = QComboBox()
         refresh_btn = QPushButton("Refresh")
@@ -79,6 +80,7 @@ class DevicePanel(QWidget):
 
         action_group = QGroupBox("Actions")
         action_layout = QVBoxLayout(action_group)
+        action_layout.setContentsMargins(8, 16, 8, 8)
 
         self.send_btn = QPushButton("Send Patch to Device")
         self.send_btn.setEnabled(False)
