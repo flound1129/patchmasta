@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QLineEdit, QPushButton, QLabel, QComboBox, QFileDialog,
 )
 from PyQt6.QtCore import pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QTextCursor
+from PyQt6.QtGui import QFont
 
 import markdown
 
@@ -62,6 +62,13 @@ class ChatPanel(QWidget):
         self.history.setReadOnly(True)
         self.history.setFont(QFont("sans-serif", 11))
         layout.addWidget(self.history, stretch=1)
+
+        # Spinner (shown between history and input while thinking)
+        self._spinner_label = QLabel()
+        self._spinner_label.setFont(QFont("sans-serif", 16))
+        self._spinner_label.setContentsMargins(4, 2, 0, 2)
+        self._spinner_label.hide()
+        layout.addWidget(self._spinner_label)
 
         # Input row
         input_row = QHBoxLayout()
@@ -159,10 +166,8 @@ class ChatPanel(QWidget):
 
         if thinking:
             self._thinking_phase = 0
-            html = self._ai_bubble_html(
-                f'<span style="font-size:18px;">{self._SPINNER_FRAMES[0]}</span>'
-            )
-            self.history.append(html)
+            self._spinner_label.setText(self._SPINNER_FRAMES[0])
+            self._spinner_label.show()
             self._thinking_timer = QTimer(self)
             self._thinking_timer.setInterval(100)
             self._thinking_timer.timeout.connect(self._cycle_thinking)
@@ -171,34 +176,8 @@ class ChatPanel(QWidget):
             if self._thinking_timer is not None:
                 self._thinking_timer.stop()
                 self._thinking_timer = None
-            self._remove_last_block()
+            self._spinner_label.hide()
 
     def _cycle_thinking(self) -> None:
         self._thinking_phase = (self._thinking_phase + 1) % len(self._SPINNER_FRAMES)
-        frame = self._SPINNER_FRAMES[self._thinking_phase]
-        self._remove_last_block()
-        html = self._ai_bubble_html(
-            f'<span style="font-size:18px;">{frame}</span>'
-        )
-        self.history.append(html)
-
-    def _remove_last_block(self) -> None:
-        cursor = self.history.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        cursor.movePosition(
-            QTextCursor.MoveOperation.StartOfBlock,
-            QTextCursor.MoveMode.MoveAnchor,
-        )
-        # Select to end
-        cursor.movePosition(
-            QTextCursor.MoveOperation.End,
-            QTextCursor.MoveMode.KeepAnchor,
-        )
-        # Also grab the preceding newline if present
-        if cursor.selectionStart() > 0:
-            cursor.setPosition(cursor.selectionStart() - 1, QTextCursor.MoveMode.MoveAnchor)
-            cursor.movePosition(
-                QTextCursor.MoveOperation.End,
-                QTextCursor.MoveMode.KeepAnchor,
-            )
-        cursor.removeSelectedText()
+        self._spinner_label.setText(self._SPINNER_FRAMES[self._thinking_phase])
