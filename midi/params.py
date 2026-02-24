@@ -922,10 +922,10 @@ _PARAMS: list[ParamDef] = [
     # Arpeggiator (extended, SysEx-only)
     # -----------------------------------------------------------------------
     ParamDef("arp_octave_range", "Arp Octave Range", "Octave range for arpeggio",
-             0, 127, group="arpeggiator", section="arpeggiator",
-             sysex_offset=388, sysex_bit=5,  # confirmed empirically 2026-02-23; 0=3Oct, 64=2Oct (other values TBD)
+             0, 3, group="arpeggiator", section="arpeggiator",
+             sysex_offset=388, sysex_bit_mask=0x60, sysex_bit_shift=5,  # bits 5-6; confirmed empirically 2026-02-23
              display_name="Octave Range",
-             value_labels={0: "3 Oct", 64: "2 Oct"}),
+             value_labels={0: "1 Oct", 1: "2 Oct", 2: "3 Oct", 3: "4 Oct"}),
     ParamDef("arp_resolution", "Arp Resolution", "Note spacing relative to tempo",
              0, 127, group="arpeggiator", section="arpeggiator",
              sysex_offset=387, sysex_bit_mask=0xF0, sysex_bit_shift=4,  # bits 4-7; confirmed 2026-02-23
