@@ -1062,16 +1062,17 @@ _PARAMS: list[ParamDef] = [
     # -----------------------------------------------------------------------
     ParamDef("long_ribbon_timbre_select", "Long Ribbon Timbre Select", "Ribbon timbre target",
              0, 2, group="ribbon", section="long_ribbon",
-             sysex_offset=398, sysex_bit=5,
+             sysex_offset=398, sysex_bit_mask=0xC0, sysex_bit_shift=6,  # bits 6-7; confirmed empirically 2026-02-23
              display_name="Timbre Select",
-             value_labels={0: "Timbre 1+2", 1: "Timbre 1", 2: "Timbre 2"}),
+             value_labels={0: "Timbre 1", 1: "Timbre 2", 2: "Timbre 1+2"}),
     ParamDef("long_ribbon_scale_type", "Long Ribbon Scale Type", "Scale type (35 types incl. Scale Off)",
              0, 34, group="ribbon", section="long_ribbon",
-             sysex_offset=398, sysex_bit=0,
+             sysex_offset=398, sysex_bit_mask=0x3F,  # bits 0-5; Off=0, Chromatic=1; confirmed empirically 2026-02-23
              display_name="Scale Type"),
     ParamDef("long_ribbon_scale_key", "Long Ribbon Scale Key", "Scale key",
-             0, 11, group="ribbon", section="long_ribbon",
-             sysex_offset=397, sysex_bit=2,
+             0, 24, group="ribbon", section="long_ribbon",
+             sysex_offset=397, sysex_bit_mask=0x7C, sysex_bit_shift=2,  # bits 2-6; confirmed empirically 2026-02-23
+             # 25 items: C+(0),B+(1),A#+(2),A+(3),G#+(4),G+(5),F#+(6),F+(7),C(8),D+(9),...,C-(24)
              display_name="Scale Key"),
     ParamDef("long_ribbon_scale_range", "Long Ribbon Scale Range", "Octave range",
              0, 127, group="ribbon", section="long_ribbon",
