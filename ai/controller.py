@@ -5,9 +5,14 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
 from ai.llm import LLMBackend, Message
 from ai.tools import TOOL_DEFINITIONS
+import re
 from midi.params import ParamMap
 from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
 from midi.sysex import build_program_write
+from midi.effects import (
+    EFFECT_TYPES, FX1_TYPE_PACKED, FX2_TYPE_PACKED, fx_param_packed,
+    EffectParam,
+)
 from core.logger import AppLogger
 
 SYSTEM_PROMPT = """You are an AI sound designer for the Korg RK-100S 2 keytar synthesizer.
@@ -33,6 +38,8 @@ Common parameters:
 - Arpeggiator: ON/OFF, Latch, Type, Gate, Select, Octave Range, Resolution, Last Step, Key Sync, Swing, Steps 1-8
 - Virtual Patches 1-5: Source, Destination, Intensity
 - Master Effects 1 & 2: FX Type (17 types), Ribbon Assign/Polarity
+  When an effect type is active, its parameters are available as fx1_{param_key} / fx2_{param_key}
+  (e.g. fx1_dry_wet, fx1_feedback). Use list_parameters to see currently available FX params.
 - Vocoder: ON/OFF, Carrier levels, Modulator settings, Filter, AMP, 16-band Level/Pan
 - Ribbon: Long Ribbon scale/pitch/filter, Short Ribbon settings
 
@@ -140,6 +147,10 @@ class AIController(QObject):
     def _tool_set_parameter(self, name: str, value: int) -> str:
         param = self._param_map.get(name)
         if param is None:
+            # Try dynamic FX effect params
+            resolved = self._resolve_fx_param(name)
+            if resolved is not None:
+                return self._set_fx_param(name, value, *resolved)
             return f"Unknown parameter: {name}"
         if not self._device.connected:
             return "Device not connected"
@@ -174,6 +185,45 @@ class AIController(QObject):
 
         return f"Set {name} = {value} (via {'+'.join(sent_via)})"
 
+    def _set_fx_param(self, name: str, value: int,
+                      slot: int, packed: int, ep: EffectParam) -> str:
+        if not self._device.connected:
+            return "Device not connected"
+        value = max(ep.min_val, min(ep.max_val, value))
+        self._sysex_buffer.set_byte(packed, value & 0x7F)
+        if self._sysex_writer is not None:
+            self._sysex_writer.schedule()
+        self._param_state[name] = value
+        self.parameter_changed.emit(name, value)
+        if self._auto_play_note:
+            self._flush_and_play_note()
+        return f"Set {name} = {value} (via SysEx)"
+
+    _FX_PARAM_RE = re.compile(r"^fx([12])_(.+)$")
+
+    def _resolve_fx_param(self, name: str) -> tuple[int, int, EffectParam] | None:
+        """Parse an ``fx{1|2}_{key}`` name and resolve it against the current FX type.
+
+        Returns ``(slot, packed_offset, EffectParam)`` or ``None``.
+        """
+        m = self._FX_PARAM_RE.match(name)
+        if m is None:
+            return None
+        slot = int(m.group(1))
+        key = m.group(2)
+        if self._sysex_buffer is None or self._sysex_buffer.size == 0:
+            return None
+        type_packed = FX1_TYPE_PACKED if slot == 1 else FX2_TYPE_PACKED
+        type_id = self._sysex_buffer.get_byte(type_packed)
+        effect = EFFECT_TYPES.get(type_id)
+        if effect is None or type_id == 0:
+            return None
+        for ep in effect.params:
+            if ep.key == key:
+                packed = fx_param_packed(slot, ep.slot_index)
+                return (slot, packed, ep)
+        return None
+
     def _flush_and_play_note(self) -> None:
         """Flush any pending SysEx write immediately, then play a brief note."""
         if not self._device.connected:
@@ -201,6 +251,11 @@ class AIController(QObject):
     def _tool_get_parameter(self, name: str) -> str:
         param = self._param_map.get(name)
         if param is None:
+            resolved = self._resolve_fx_param(name)
+            if resolved is not None:
+                _slot, packed, _ep = resolved
+                val = self._sysex_buffer.get_byte(packed)
+                return f"{name} = {val}"
             return f"Unknown parameter: {name}"
         # Try reading from SysEx buffer first (most accurate)
         if (param.sysex_offset is not None
@@ -219,6 +274,21 @@ class AIController(QObject):
         for p in self._param_map.list_all():
             current = self._param_state.get(p.name, "?")
             lines.append(f"{p.name}: {p.description} [{p.min_val}-{p.max_val}] current={current}")
+        # Append dynamic FX effect params based on current FX types
+        if self._sysex_buffer is not None and self._sysex_buffer.size > 0:
+            for slot, type_packed in ((1, FX1_TYPE_PACKED), (2, FX2_TYPE_PACKED)):
+                type_id = self._sysex_buffer.get_byte(type_packed)
+                effect = EFFECT_TYPES.get(type_id)
+                if effect is None or type_id == 0:
+                    continue
+                lines.append(f"--- FX{slot}: {effect.name} ---")
+                for ep in effect.params:
+                    pname = f"fx{slot}_{ep.key}"
+                    packed = fx_param_packed(slot, ep.slot_index)
+                    val = self._sysex_buffer.get_byte(packed)
+                    lines.append(
+                        f"{pname}: {ep.display_name} [{ep.min_val}-{ep.max_val}] current={val}"
+                    )
         return "\n".join(lines)
 
     def _tool_trigger_note(self, note: int, velocity: int, duration_ms: int) -> str:
