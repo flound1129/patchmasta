@@ -21,13 +21,13 @@ class PatchDetailPanel(QWidget):
 
         self.name_edit = QLineEdit()
         self.slot_spin = QSpinBox()
-        self.slot_spin.setRange(0, 127)
+        self.slot_spin.setRange(0, 199)
         self.category_edit = QLineEdit()
         self.notes_edit = QTextEdit()
         self.notes_edit.setMaximumHeight(80)
 
         form.addRow("Name:", self.name_edit)
-        form.addRow("Slot (0-127):", self.slot_spin)
+        form.addRow("Slot (0-199):", self.slot_spin)
         form.addRow("Category:", self.category_edit)
         form.addRow("Notes:", self.notes_edit)
         layout.addLayout(form)
