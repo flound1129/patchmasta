@@ -922,9 +922,10 @@ _PARAMS: list[ParamDef] = [
     # Arpeggiator (extended, SysEx-only)
     # -----------------------------------------------------------------------
     ParamDef("arp_octave_range", "Arp Octave Range", "Octave range for arpeggio",
-             1, 4, group="arpeggiator", section="arpeggiator",
-             sysex_offset=388, sysex_bit=5,
-             display_name="Octave Range"),
+             0, 127, group="arpeggiator", section="arpeggiator",
+             sysex_offset=388, sysex_bit=5,  # confirmed empirically 2026-02-23; 0=3Oct, 64=2Oct (other values TBD)
+             display_name="Octave Range",
+             value_labels={0: "3 Oct", 64: "2 Oct"}),
     ParamDef("arp_resolution", "Arp Resolution", "Note spacing relative to tempo",
              0, 127, group="arpeggiator", section="arpeggiator",
              sysex_offset=387, sysex_bit_mask=0xF0, sysex_bit_shift=4,  # bits 4-7; confirmed 2026-02-23
@@ -935,14 +936,14 @@ _PARAMS: list[ParamDef] = [
              display_name="Last Step"),
     ParamDef("arp_key_sync", "Arp Key Sync", "Sync arpeggio to keyboard",
              0, 1, group="arpeggiator", section="arpeggiator",
-             sysex_offset=385, sysex_bit=6,
+             sysex_offset=385, sysex_bit=6,  # confirmed empirically 2026-02-23
              display_name="Key Sync",
              value_labels={0: "Off", 1: "On"}),
     ParamDef("arp_swing", "Arp Swing", "Swing amount for even-numbered notes",
              0, 127, group="arpeggiator", section="arpeggiator",
-             sysex_offset=390,
+             sysex_offset=390,  # confirmed empirically 2026-02-23
              display_name="Swing"),
-    # Step Edit: 8 steps on/off (all packed in single byte at Arp L6, packed 391)
+    # Step Edit: 8 steps on/off (all packed in single byte at Arp L6, packed 391; confirmed empirically 2026-02-23)
     *[ParamDef(f"arp_step{i}_sw", f"Arp Step {i} on/off", f"Step {i} on/off toggle",
                0, 1, group="arpeggiator", section="arpeggiator_steps",
                sysex_offset=391, sysex_bit=i - 1,
@@ -966,11 +967,11 @@ _PARAMS: list[ParamDef] = [
                            17: "Grain Shifter"}),
     ParamDef("fx1_ribbon_assign", "FX1 Long Ribbon Assign", "Ribbon assign for FX1",
              0, 127, group="effects", section="fx1",
-             sysex_offset=330,
+             sysex_offset=330,  # confirmed empirically 2026-02-23; 31=Assign Off, 0=Dry/Wet
              display_name="Ribbon Assign"),
     ParamDef("fx1_ribbon_polarity", "FX1 Long Ribbon Polarity", "Ribbon polarity for FX1",
              0, 1, group="effects", section="fx1",
-             sysex_offset=331,
+             sysex_offset=331,  # confirmed empirically 2026-02-23
              display_name="Ribbon Polarity",
              value_labels={0: "Forward", 1: "Reverse"}),
 
@@ -987,11 +988,11 @@ _PARAMS: list[ParamDef] = [
                            17: "Grain Shifter"}),
     ParamDef("fx2_ribbon_assign", "FX2 Long Ribbon Assign", "Ribbon assign for FX2",
              0, 127, group="effects", section="fx2",
-             sysex_offset=357,
+             sysex_offset=357,  # confirmed empirically 2026-02-23; 31=Assign Off
              display_name="Ribbon Assign"),
     ParamDef("fx2_ribbon_polarity", "FX2 Long Ribbon Polarity", "Ribbon polarity for FX2",
              0, 1, group="effects", section="fx2",
-             sysex_offset=358,
+             sysex_offset=358,  # structural inference (mirrors FX1 pattern); not directly tested
              display_name="Ribbon Polarity",
              value_labels={0: "Forward", 1: "Reverse"}),
 
