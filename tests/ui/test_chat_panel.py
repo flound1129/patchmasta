@@ -38,20 +38,20 @@ def test_chat_panel_thinking_indicator_shows_and_hides(app):
     panel = ChatPanel()
     panel.set_thinking(True)
     text = panel.history.toPlainText()
-    assert "Thinking" in text
+    assert any(ch in text for ch in ChatPanel._SPINNER_FRAMES)
     panel.set_thinking(False)
     text = panel.history.toPlainText()
-    assert "Thinking" not in text
+    assert not any(ch in text for ch in ChatPanel._SPINNER_FRAMES)
 
 def test_chat_panel_thinking_preserves_prior_messages(app):
     panel = ChatPanel()
     panel.append_user_message("hello")
     panel.set_thinking(True)
-    assert "Thinking" in panel.history.toPlainText()
+    assert any(ch in panel.history.toPlainText() for ch in ChatPanel._SPINNER_FRAMES)
     assert "hello" in panel.history.toPlainText()
     panel.set_thinking(False)
     assert "hello" in panel.history.toPlainText()
-    assert "Thinking" not in panel.history.toPlainText()
+    assert not any(ch in panel.history.toPlainText() for ch in ChatPanel._SPINNER_FRAMES)
 
 
 def test_chat_panel_starts_disabled(app):

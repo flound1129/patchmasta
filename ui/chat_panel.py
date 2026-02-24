@@ -17,7 +17,7 @@ class ChatPanel(QWidget):
     match_requested = pyqtSignal(str)  # wav file path
     stop_requested = pyqtSignal()
 
-    _THINKING_TEXTS = ["Thinking.", "Thinking..", "Thinking..."]
+    _SPINNER_FRAMES = list("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -159,10 +159,12 @@ class ChatPanel(QWidget):
 
         if thinking:
             self._thinking_phase = 0
-            html = self._ai_bubble_html(self._THINKING_TEXTS[0])
+            html = self._ai_bubble_html(
+                f'<span style="font-size:18px;">{self._SPINNER_FRAMES[0]}</span>'
+            )
             self.history.append(html)
             self._thinking_timer = QTimer(self)
-            self._thinking_timer.setInterval(500)
+            self._thinking_timer.setInterval(100)
             self._thinking_timer.timeout.connect(self._cycle_thinking)
             self._thinking_timer.start()
         else:
@@ -172,11 +174,12 @@ class ChatPanel(QWidget):
             self._remove_last_block()
 
     def _cycle_thinking(self) -> None:
-        self._thinking_phase = (self._thinking_phase + 1) % len(self._THINKING_TEXTS)
-        new_text = self._THINKING_TEXTS[self._thinking_phase]
-        # Replace content of the last block
+        self._thinking_phase = (self._thinking_phase + 1) % len(self._SPINNER_FRAMES)
+        frame = self._SPINNER_FRAMES[self._thinking_phase]
         self._remove_last_block()
-        html = self._ai_bubble_html(new_text)
+        html = self._ai_bubble_html(
+            f'<span style="font-size:18px;">{frame}</span>'
+        )
         self.history.append(html)
 
     def _remove_last_block(self) -> None:
