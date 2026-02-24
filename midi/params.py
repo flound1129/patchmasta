@@ -992,7 +992,7 @@ _PARAMS: list[ParamDef] = [
              display_name="Ribbon Assign"),
     ParamDef("fx2_ribbon_polarity", "FX2 Long Ribbon Polarity", "Ribbon polarity for FX2",
              0, 1, group="effects", section="fx2",
-             sysex_offset=358,  # structural inference (mirrors FX1 pattern); not directly tested
+             sysex_offset=358,  # confirmed empirically 2026-02-23
              display_name="Ribbon Polarity",
              value_labels={0: "Forward", 1: "Reverse"}),
 
@@ -1076,13 +1076,15 @@ _PARAMS: list[ParamDef] = [
              # 25 items: C+(0),B+(1),A#+(2),A+(3),G#+(4),G+(5),F#+(6),F+(7),C(8),D+(9),...,C-(24)
              display_name="Scale Key"),
     ParamDef("long_ribbon_scale_range", "Long Ribbon Scale Range", "Octave range",
-             0, 127, group="ribbon", section="long_ribbon",
-             sysex_offset=399,
-             display_name="Scale Range"),
+             65, 68, group="ribbon", section="long_ribbon",
+             sysex_offset=399,  # confirmed empirically 2026-02-23; 65=1Oct,66=2Oct,67=3Oct,68=4Oct
+             display_name="Scale Range",
+             value_labels={65: "1 Oct", 66: "2 Oct", 67: "3 Oct", 68: "4 Oct"}),
     ParamDef("long_ribbon_pitch_range", "Long Ribbon Pitch Range", "Pitch range in octaves",
-             0, 127, group="ribbon", section="long_ribbon",
-             sysex_offset=401,
-             display_name="Pitch Range"),
+             65, 68, group="ribbon", section="long_ribbon",
+             sysex_offset=401,  # confirmed empirically 2026-02-23; same encoding as scale_range
+             display_name="Pitch Range",
+             value_labels={65: "1 Oct", 66: "2 Oct", 67: "3 Oct", 68: "4 Oct"}),
     ParamDef("long_ribbon_filter_int", "Long Ribbon Filter Intensity", "Filter effect depth",
              -63, 63, group="ribbon", section="long_ribbon",
              sysex_offset=123,

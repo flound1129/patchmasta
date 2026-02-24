@@ -90,7 +90,7 @@ class DevicePanel(QWidget):
         self.pull_btn.clicked.connect(self.pull_requested)
         action_layout.addWidget(self.pull_btn)
 
-        self.load_all_btn = QPushButton("Load All Programs (128)")
+        self.load_all_btn = QPushButton("Load All Programs (200)")
         self.load_all_btn.setEnabled(False)
         self.load_all_btn.clicked.connect(self.load_all_requested)
         action_layout.addWidget(self.load_all_btn)

@@ -17,11 +17,33 @@ def _channel_byte(channel: int) -> int:
     return 0x30 + (channel - 1)
 
 
+NUM_PROGRAMS = 200  # RK-100S 2 has 200 programs across 2 banks
+
 def build_program_change(channel: int, program: int) -> list[int]:
     """Standard MIDI Program Change message (not SysEx)."""
     if not (1 <= channel <= 16):
         raise ValueError(f"MIDI channel must be 1-16, got {channel}")
     return [0xC0 | (channel - 1), program & 0x7F]
+
+
+def build_slot_messages(channel: int, slot: int) -> list[list[int]]:
+    """Return bank-select + program-change messages for a given slot (0-199).
+
+    Bank 0 (CC#32=0): slots 0-127
+    Bank 1 (CC#32=1): slots 128-199
+    """
+    if not (1 <= channel <= 16):
+        raise ValueError(f"MIDI channel must be 1-16, got {channel}")
+    if not (0 <= slot < NUM_PROGRAMS):
+        raise ValueError(f"Slot must be 0-{NUM_PROGRAMS - 1}, got {slot}")
+    ch = channel - 1
+    bank_lsb = 0 if slot < 128 else 1
+    pc = slot if slot < 128 else slot - 128
+    return [
+        [0xB0 | ch, 0, 0],          # CC#0  bank MSB = 0
+        [0xB0 | ch, 32, bank_lsb],  # CC#32 bank LSB
+        [0xC0 | ch, pc],            # Program Change
+    ]
 
 
 def build_program_dump_request(channel: int) -> list[int]:

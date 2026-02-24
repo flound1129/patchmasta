@@ -9,8 +9,8 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import time
 from core.logger import AppLogger
 from midi.sysex import (
-    build_program_change, build_program_dump_request,
-    build_program_write, parse_program_dump, extract_patch_name,
+    build_program_change, build_slot_messages, build_program_dump_request,
+    build_program_write, parse_program_dump, extract_patch_name, NUM_PROGRAMS,
 )
 from model.patch import Patch
 from model.library import Library
@@ -62,14 +62,15 @@ class PullWorker(QThread):
                         _recv.append(parsed)
                         _evt.set()
 
-                # Select the program slot, then request a dump of the current program
-                pc_msg = build_program_change(channel=1, program=slot & 0x7F)
-                self._device.send(pc_msg)
+                # Select the program slot (with bank select for slots >= 128), then dump
+                slot_msgs = build_slot_messages(channel=1, slot=slot)
+                for m in slot_msgs:
+                    self._device.send(m)
                 time.sleep(0.05)  # let the device switch programs
 
                 msg = build_program_dump_request(channel=1)
                 if i == 0:
-                    self._logger.midi(f"TX: slot {slot}: pc={[hex(b) for b in pc_msg]} dump={[hex(b) for b in msg]}")
+                    self._logger.midi(f"TX: slot {slot}: bank_sel+pc={[[hex(b) for b in m] for m in slot_msgs]} dump={[hex(b) for b in msg]}")
                 self._device.set_sysex_callback(on_sysex)
                 self._device.send(msg)
                 event.wait(timeout=2.0)
@@ -235,7 +236,7 @@ class MainWindow(QMainWindow):
 
     def _on_pull_prompted(self) -> None:
         slot, ok = QInputDialog.getInt(
-            self, "Pull Program", "Slot to pull (0-127):", 0, 0, 127
+            self, "Pull Program", f"Slot to pull (0-{NUM_PROGRAMS - 1}):", 0, 0, NUM_PROGRAMS - 1
         )
         if ok:
             self._start_pull([slot])
@@ -256,23 +257,24 @@ class MainWindow(QMainWindow):
     def _on_load_all(self) -> None:
         reply = QMessageBox.question(
             self, "Load All Programs",
-            "This will clear the current library and load all 128 programs from the device.\n\nContinue?",
+            f"This will clear the current library and load all {NUM_PROGRAMS} programs from the device.\n\nContinue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
         self._library.clear_patches()
         self._refresh_library()
-        self._start_pull(list(range(128)))
+        self._start_pull(list(range(NUM_PROGRAMS)))
 
     def _on_load_range(self) -> None:
+        max_slot = NUM_PROGRAMS - 1
         start, ok1 = QInputDialog.getInt(
-            self, "Load Slot Range", "Start slot (0-127):", 0, 0, 127
+            self, "Load Slot Range", f"Start slot (0-{max_slot}):", 0, 0, max_slot
         )
         if not ok1:
             return
         end, ok2 = QInputDialog.getInt(
-            self, "Load Slot Range", "End slot (0-127):", min(start + 40, 127), start, 127
+            self, "Load Slot Range", f"End slot (0-{max_slot}):", min(start + 40, max_slot), start, max_slot
         )
         if not ok2:
             return

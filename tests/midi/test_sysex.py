@@ -1,7 +1,7 @@
 from midi.sysex import (
-    build_program_change, build_program_dump_request, build_all_dump_request,
-    parse_program_dump, build_program_write, extract_patch_name,
-    KORG_ID, MODEL_ID,
+    build_program_change, build_slot_messages, build_program_dump_request,
+    build_all_dump_request, parse_program_dump, build_program_write,
+    extract_patch_name, KORG_ID, MODEL_ID, NUM_PROGRAMS,
 )
 
 def test_korg_id():
@@ -75,3 +75,47 @@ def test_extract_patch_name_empty_data():
 
 def test_extract_patch_name_short_data():
     assert extract_patch_name(b"\x00\x01") is None
+
+
+def test_num_programs():
+    assert NUM_PROGRAMS == 200
+
+
+def test_build_slot_messages_bank0():
+    """Slots 0-127 use bank LSB=0."""
+    msgs = build_slot_messages(channel=1, slot=0)
+    assert len(msgs) == 3
+    assert msgs[0] == [0xB0, 0, 0]   # CC#0 MSB=0
+    assert msgs[1] == [0xB0, 32, 0]  # CC#32 LSB=0
+    assert msgs[2] == [0xC0, 0]      # PC=0
+
+    msgs127 = build_slot_messages(channel=1, slot=127)
+    assert msgs127[1] == [0xB0, 32, 0]
+    assert msgs127[2] == [0xC0, 127]
+
+
+def test_build_slot_messages_bank1():
+    """Slots 128-199 use bank LSB=1, PC = slot - 128."""
+    msgs = build_slot_messages(channel=1, slot=128)
+    assert msgs[1] == [0xB0, 32, 1]  # CC#32 LSB=1
+    assert msgs[2] == [0xC0, 0]      # PC=0
+
+    msgs199 = build_slot_messages(channel=1, slot=199)
+    assert msgs199[1] == [0xB0, 32, 1]
+    assert msgs199[2] == [0xC0, 71]  # 199 - 128 = 71
+
+
+def test_build_slot_messages_channel_encoding():
+    msgs = build_slot_messages(channel=2, slot=5)
+    assert msgs[0][0] == 0xB1  # CC on channel 2
+    assert msgs[2][0] == 0xC1  # PC on channel 2
+
+
+def test_build_slot_messages_invalid():
+    import pytest
+    with pytest.raises(ValueError):
+        build_slot_messages(channel=1, slot=-1)
+    with pytest.raises(ValueError):
+        build_slot_messages(channel=1, slot=200)
+    with pytest.raises(ValueError):
+        build_slot_messages(channel=0, slot=0)
