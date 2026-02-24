@@ -7,6 +7,7 @@ from ai.llm import LLMBackend, Message
 from ai.tools import TOOL_DEFINITIONS
 from midi.params import ParamMap
 from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
+from midi.sysex import build_program_write
 from core.logger import AppLogger
 
 SYSTEM_PROMPT = """You are an AI sound designer for the Korg RK-100S 2 keytar synthesizer.
@@ -75,6 +76,10 @@ class AIController(QObject):
         self._param_state: dict[str, int] = {}
         self._stop_requested = False
         self._audio_device = None
+        self._auto_play_note = True  # play a note after each set_parameter call
+        self._auto_note = 60         # middle C
+        self._auto_note_velocity = 100
+        self._auto_note_duration_ms = 300
 
     def send_message(self, user_text: str) -> None:
         """Send a user message. Runs LLM call in a background thread."""
@@ -163,7 +168,35 @@ class AIController(QObject):
 
         self._param_state[name] = value
         self.parameter_changed.emit(name, value)
+
+        if self._auto_play_note:
+            self._flush_and_play_note()
+
         return f"Set {name} = {value} (via {'+'.join(sent_via)})"
+
+    def _flush_and_play_note(self) -> None:
+        """Flush any pending SysEx write immediately, then play a brief note."""
+        if not self._device.connected:
+            return
+        # Flush dirty SysEx buffer before playing so the note uses updated params
+        if (self._sysex_buffer is not None
+                and self._sysex_buffer.dirty
+                and self._sysex_buffer.size > 0):
+            try:
+                data = self._sysex_buffer.to_bytes()
+                msg = build_program_write(channel=1, data=data)
+                self._device.send(msg)
+                self._sysex_buffer.mark_clean()
+                time.sleep(0.05)  # give device time to process SysEx before note
+            except Exception:
+                pass
+        try:
+            self._device.send_note_on(channel=1, note=self._auto_note,
+                                       velocity=self._auto_note_velocity)
+            time.sleep(self._auto_note_duration_ms / 1000.0)
+            self._device.send_note_off(channel=1, note=self._auto_note)
+        except Exception:
+            pass
 
     def _tool_get_parameter(self, name: str) -> str:
         param = self._param_map.get(name)
