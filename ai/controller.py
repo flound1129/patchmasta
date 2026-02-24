@@ -37,7 +37,12 @@ Common parameters:
 - Voice Mode: Single/Layer/Split/Multi
 - Arpeggiator: ON/OFF, Latch, Type, Gate, Select, Octave Range, Resolution, Last Step, Key Sync, Swing, Steps 1-8
 - Virtual Patches 1-5: Source, Destination, Intensity
-- Master Effects 1 & 2: FX Type (17 types), Ribbon Assign/Polarity
+- Scale: scale (0=Equal Temp, 1=Pure Major, 2=Pure Minor, ... 20=Arabic), scale_key
+- Master Effects 1 & 2: FX Type, Ribbon Assign/Polarity
+  FX type IDs: 0=Off, 1=Compressor, 2=Filter, 3=4Band EQ, 4=Distortion, 5=Decimator,
+  6=Delay, 7=L/C/R Delay, 8=Auto Panning Delay, 9=Modulation Delay, 10=Tape Echo,
+  11=Chorus, 12=Flanger, 13=Vibrato, 14=Phaser, 15=Tremolo, 16=Ring Modulator,
+  17=Grain Shifter. Set via fx1_type / fx2_type.
   When an effect type is active, its parameters are available as fx1_{param_key} / fx2_{param_key}
   (e.g. fx1_dry_wet, fx1_feedback). Use list_parameters to see currently available FX params.
 - Vocoder: ON/OFF, Carrier levels, Modulator settings, Filter, AMP, 16-band Level/Pan
