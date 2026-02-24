@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
 from PyQt6.QtGui import QAction
 from ui.chat_panel import ChatPanel
-from ui.keyboard_widget import KeyboardPanel
+from ui.keyboard_widget import KeyboardPanel, TransportPanel
 from ui.synth_params_panel import SynthParamsPanel
 from ui.synth_tabs import (
     TimbreSynthTab, ArpeggiatorTab, EffectsTab, VocoderTab, EQTab,
@@ -17,6 +17,7 @@ from ai.llm import ClaudeBackend, GroqBackend
 from midi.params import ParamMap
 from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
 from midi.sysex import build_program_write, extract_patch_name
+from midi.player import MidiFilePlayer
 from tools.file_format import sysex_to_prog_bytes
 from core.config import AppConfig
 from core.chat_db import ChatHistoryDB
@@ -55,6 +56,7 @@ class SynthEditorWindow(QMainWindow):
         )
         self._sysex_writer.write_requested.connect(self._flush_sysex)
         self._note_bridge = _NoteSignalBridge(self)
+        self._midi_player: MidiFilePlayer | None = None
         self._build_ui()
         self._connect_signals()
 
@@ -125,14 +127,17 @@ class SynthEditorWindow(QMainWindow):
         )
         self._tab_widget.addTab(self._eq_tab, "EQ / Ribbon")
 
-        # Right side: tabs on top, keyboard on bottom
+        # Right side: tabs on top, transport bar, keyboard on bottom
         right_splitter = QSplitter(Qt.Orientation.Vertical)
         right_splitter.addWidget(self._tab_widget)
+        self._transport_panel = TransportPanel()
+        right_splitter.addWidget(self._transport_panel)
         self._keyboard_panel = KeyboardPanel()
         right_splitter.addWidget(self._keyboard_panel)
         right_splitter.setStretchFactor(0, 1)  # tabs stretch
-        right_splitter.setStretchFactor(1, 0)  # keyboard fixed
-        right_splitter.setSizes([700, 100])
+        right_splitter.setStretchFactor(1, 0)  # transport fixed
+        right_splitter.setStretchFactor(2, 0)  # keyboard fixed
+        right_splitter.setSizes([664, 36, 100])
 
         splitter.addWidget(chat_container)
         splitter.addWidget(right_splitter)
@@ -161,6 +166,14 @@ class SynthEditorWindow(QMainWindow):
         self._keyboard_panel.note_released.connect(self._on_keyboard_note_released)
         # MIDI input thread → main thread bridge → keyboard
         self._note_bridge.note_received.connect(self._on_midi_note_received)
+        # Transport panel signals
+        self._transport_panel.load_requested.connect(self._on_load_midi)
+        self._transport_panel.play_pause_requested.connect(self._on_play_pause)
+        self._transport_panel.stop_requested.connect(self._on_transport_stop)
+        self._transport_panel.rewind_requested.connect(self._on_rewind)
+        self._transport_panel.seek_requested.connect(self._on_seek)
+        self._transport_panel.tempo_changed.connect(self._on_tempo_changed)
+        self._transport_panel.loop_toggled.connect(self._on_loop_toggled)
 
     # -- Keyboard / note handling --
 
@@ -282,7 +295,82 @@ class SynthEditorWindow(QMainWindow):
         else:
             self._keyboard_panel.clear_all_notes()
 
+    # -- MIDI file player --
+
+    def _get_or_create_midi_player(self) -> MidiFilePlayer:
+        if self._midi_player is not None:
+            return self._midi_player
+        player = MidiFilePlayer(self)
+        # Device output
+        player.set_send_note_on(
+            lambda ch, note, vel: (
+                self._device.send_note_on(channel=ch, note=note, velocity=vel)
+                if self._device.connected else None
+            )
+        )
+        player.set_send_note_off(
+            lambda ch, note: (
+                self._device.send_note_off(channel=ch, note=note)
+                if self._device.connected else None
+            )
+        )
+        # Keyboard visualisation
+        player.note_on.connect(self._keyboard_panel.note_on)
+        player.note_off.connect(self._keyboard_panel.note_off)
+        # Transport feedback
+        player.position_changed.connect(self._transport_panel.update_position)
+        player.file_loaded.connect(self._transport_panel.set_file_loaded)
+        player.playback_finished.connect(self._on_playback_finished)
+        self._midi_player = player
+        return player
+
+    def _on_load_midi(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load MIDI File", "",
+            "MIDI Files (*.mid *.midi);;All Files (*)",
+        )
+        if path:
+            player = self._get_or_create_midi_player()
+            player.load_file(path)
+
+    def _on_play_pause(self) -> None:
+        player = self._get_or_create_midi_player()
+        if player.playing:
+            player.toggle_pause()
+            self._transport_panel.set_playing(not player.paused)
+        else:
+            player.play()
+            self._transport_panel.set_playing(True)
+
+    def _on_transport_stop(self) -> None:
+        if self._midi_player is not None:
+            self._midi_player.stop()
+        self._transport_panel.reset()
+        self._keyboard_panel.clear_all_notes()
+
+    def _on_rewind(self) -> None:
+        if self._midi_player is not None:
+            self._midi_player.seek(0)
+
+    def _on_seek(self, seconds: float) -> None:
+        if self._midi_player is not None:
+            self._midi_player.seek(seconds)
+
+    def _on_tempo_changed(self, factor: float) -> None:
+        if self._midi_player is not None:
+            self._midi_player.set_tempo_factor(factor)
+
+    def _on_loop_toggled(self, enabled: bool) -> None:
+        if self._midi_player is not None:
+            self._midi_player.set_loop(enabled)
+
+    def _on_playback_finished(self) -> None:
+        self._transport_panel.reset()
+        self._keyboard_panel.clear_all_notes()
+
     def closeEvent(self, event) -> None:
+        if self._midi_player is not None:
+            self._midi_player.stop()
         self.hide()
         event.ignore()
 

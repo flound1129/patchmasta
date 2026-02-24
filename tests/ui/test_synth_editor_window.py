@@ -77,6 +77,16 @@ def test_save_action_enabled_after_load(editor):
     assert editor._save_action.isEnabled()
 
 
+def test_transport_panel_exists(editor):
+    from ui.keyboard_widget import TransportPanel
+    assert hasattr(editor, "_transport_panel")
+    assert isinstance(editor._transport_panel, TransportPanel)
+
+
+def test_midi_player_lazy_init(editor):
+    assert editor._midi_player is None
+
+
 def test_save_patch_writes_file(editor, tmp_path):
     """Verify that saving writes a valid 528-byte .rk100s2_prog file."""
     from tools.file_format import sysex_to_prog_bytes

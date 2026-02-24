@@ -45,6 +45,7 @@
 ./midi/effects.py
 ./midi/__init__.py
 ./midi/params.py
+./midi/player.py
 ./midi/sysex_buffer.py
 ./midi/sysex.py
 ./model
@@ -93,6 +94,7 @@
 ./tests/midi/test_effects.py
 ./tests/midi/test_params.py
 ./tests/midi/test_sysex_buffer.py
+./tests/midi/test_player.py
 ./tests/midi/test_sysex.py
 ./tests/tools
 ./tests/tools/__init__.py
@@ -114,6 +116,7 @@
 ./tests/ui/test_keyboard_widget.py
 ./tests/ui/test_synth_editor_window.py
 ./tests/ui/test_synth_params_panel.py
+./tests/ui/test_transport_panel.py
 ./tests/ui/test_synth_tabs.py
 ./tools
 ./tools/compute_offsets.py

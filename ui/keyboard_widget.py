@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPalette
-from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+from PyQt6.QtWidgets import (
+    QHBoxLayout, QLabel, QPushButton, QSlider, QWidget,
+)
 
 # Which semitones within an octave are black keys (sharps/flats)
 _BLACK_SEMITONES = {1, 3, 6, 8, 10}
@@ -32,7 +34,7 @@ class VirtualKeyboardWidget(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._base_note = 48  # C3
+        self._base_note = 36  # C2 — matches RK-100S 2 keytar range
         self._active_notes: dict[int, int] = {}  # note → velocity
         self._pressed_note: int | None = None
         self.setMinimumHeight(80)
@@ -222,3 +224,135 @@ class KeyboardPanel(QWidget):
         lo = f"{note_names[base % 12]}{base // 12 - 1}"
         hi = f"{note_names[top % 12]}{top // 12 - 1}"
         self._keyboard.setToolTip(f"{lo}\u2013{hi}")
+
+
+def _format_time(seconds: float) -> str:
+    """Format seconds as m:ss."""
+    m = int(seconds) // 60
+    s = int(seconds) % 60
+    return f"{m}:{s:02d}"
+
+
+class TransportPanel(QWidget):
+    """MIDI file transport controls: load, play/pause, stop, seek, tempo, loop."""
+
+    load_requested = pyqtSignal()
+    play_pause_requested = pyqtSignal()
+    stop_requested = pyqtSignal()
+    rewind_requested = pyqtSignal()
+    seek_requested = pyqtSignal(float)
+    tempo_changed = pyqtSignal(float)
+    loop_toggled = pyqtSignal(bool)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(36)
+        self._duration: float = 0.0
+        self._dragging = False
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(4, 0, 4, 0)
+        layout.setSpacing(4)
+
+        # Load button
+        self._btn_load = QPushButton("Load MIDI...")
+        self._btn_load.setFixedWidth(90)
+        self._btn_load.clicked.connect(self.load_requested)
+        layout.addWidget(self._btn_load)
+
+        # Rewind
+        self._btn_rewind = QPushButton("\u23EE")  # ⏮
+        self._btn_rewind.setFixedWidth(28)
+        self._btn_rewind.setEnabled(False)
+        self._btn_rewind.clicked.connect(self.rewind_requested)
+        layout.addWidget(self._btn_rewind)
+
+        # Play / Pause
+        self._btn_play = QPushButton("\u25B6")  # ▶
+        self._btn_play.setFixedWidth(28)
+        self._btn_play.setEnabled(False)
+        self._btn_play.clicked.connect(self.play_pause_requested)
+        layout.addWidget(self._btn_play)
+
+        # Stop
+        self._btn_stop = QPushButton("\u25A0")  # ■
+        self._btn_stop.setFixedWidth(28)
+        self._btn_stop.setEnabled(False)
+        self._btn_stop.clicked.connect(self.stop_requested)
+        layout.addWidget(self._btn_stop)
+
+        # Progress slider (millisecond resolution)
+        self._slider = QSlider(Qt.Orientation.Horizontal)
+        self._slider.setRange(0, 0)
+        self._slider.setEnabled(False)
+        self._slider.sliderPressed.connect(self._on_slider_pressed)
+        self._slider.sliderReleased.connect(self._on_slider_released)
+        layout.addWidget(self._slider, stretch=1)
+
+        # Time label
+        self._time_label = QLabel("0:00 / 0:00")
+        self._time_label.setFixedWidth(80)
+        layout.addWidget(self._time_label)
+
+        # Tempo slider (25% – 400%)
+        self._tempo_slider = QSlider(Qt.Orientation.Horizontal)
+        self._tempo_slider.setRange(25, 400)
+        self._tempo_slider.setValue(100)
+        self._tempo_slider.setFixedWidth(80)
+        self._tempo_slider.setEnabled(False)
+        self._tempo_slider.valueChanged.connect(self._on_tempo_changed)
+        layout.addWidget(self._tempo_slider)
+
+        self._tempo_label = QLabel("100%")
+        self._tempo_label.setFixedWidth(36)
+        layout.addWidget(self._tempo_label)
+
+        # Loop toggle
+        self._btn_loop = QPushButton("\U0001F501")  # 🔁
+        self._btn_loop.setFixedWidth(28)
+        self._btn_loop.setCheckable(True)
+        self._btn_loop.setEnabled(False)
+        self._btn_loop.toggled.connect(self.loop_toggled)
+        layout.addWidget(self._btn_loop)
+
+    def set_file_loaded(self, filename: str, duration: float) -> None:
+        """Enable controls after a MIDI file is loaded."""
+        self._duration = duration
+        self._slider.setRange(0, int(duration * 1000))
+        self._slider.setValue(0)
+        self._time_label.setText(f"0:00 / {_format_time(duration)}")
+        for w in (self._btn_rewind, self._btn_play, self._btn_stop,
+                  self._slider, self._tempo_slider, self._btn_loop):
+            w.setEnabled(True)
+
+    def update_position(self, current: float, total: float) -> None:
+        """Update slider and time label from playback position."""
+        if self._dragging:
+            return
+        self._slider.setValue(int(current * 1000))
+        self._time_label.setText(
+            f"{_format_time(current)} / {_format_time(total)}"
+        )
+
+    def set_playing(self, playing: bool) -> None:
+        """Toggle play/pause icon."""
+        self._btn_play.setText("\u23F8" if playing else "\u25B6")  # ⏸ or ▶
+
+    def reset(self) -> None:
+        """Restore stopped state."""
+        self.set_playing(False)
+        self._slider.setValue(0)
+        self._time_label.setText(
+            f"0:00 / {_format_time(self._duration)}"
+        )
+
+    def _on_slider_pressed(self) -> None:
+        self._dragging = True
+
+    def _on_slider_released(self) -> None:
+        self._dragging = False
+        self.seek_requested.emit(self._slider.value() / 1000.0)
+
+    def _on_tempo_changed(self, value: int) -> None:
+        self._tempo_label.setText(f"{value}%")
+        self.tempo_changed.emit(value / 100.0)

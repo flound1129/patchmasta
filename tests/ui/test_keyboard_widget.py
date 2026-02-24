@@ -28,7 +28,7 @@ def panel(app):
 
 def test_keyboard_widget_initial_state(keyboard):
     assert keyboard._active_notes == {}
-    assert keyboard.base_note == 48
+    assert keyboard.base_note == 36
 
 
 def test_note_on_off_updates_active(keyboard):
@@ -51,7 +51,7 @@ def test_mouse_press_emits_signal(keyboard):
     keyboard.mousePressEvent(event)
     assert handler.called
     note, velocity = handler.call_args[0]
-    assert 48 <= note <= 83  # within 3-octave range
+    assert 36 <= note <= 71  # within 3-octave range
     assert velocity == 100
 
 
@@ -77,7 +77,7 @@ def test_mouse_release_emits_signal(keyboard):
 
 
 def test_keyboard_default_range(keyboard):
-    assert keyboard.base_note == 48
+    assert keyboard.base_note == 36
     assert keyboard.NUM_KEYS == 36  # 3 octaves
 
 
