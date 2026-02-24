@@ -31,6 +31,8 @@ class MidiDevice:
         self._connected = False
         self._port_name: str | None = None
         self._logger = logger or AppLogger()
+        self._note_callback = None
+        self._sysex_callback = None
 
     @property
     def connected(self) -> bool:
@@ -70,11 +72,8 @@ class MidiDevice:
                     "It may be in use by another application (e.g. Korg software)."
                 ) from exc
             self._logger.midi(f"IN:  {in_ports[in_index]} (index {in_index})")
-            # Catch-all debug listener — logs every incoming message until replaced
             self._midi_in.ignore_types(sysex=False)
-            self._midi_in.set_callback(
-                lambda ev, _=None: self._logger.midi(f"RX raw: {[hex(b) for b in ev[0]]}")
-            )
+            self._midi_in.set_callback(self._dispatch_midi_input)
         except Exception:
             self._midi_out.close_port()
             raise
@@ -119,8 +118,37 @@ class MidiDevice:
         ch = 0x80 | ((channel - 1) & 0x0F)
         self._midi_out.send_message([ch, note & 0x7F, 0])
 
+    def _dispatch_midi_input(self, event, _data=None) -> None:
+        """Route incoming MIDI messages to the appropriate callback."""
+        msg = event[0]
+        if not msg:
+            return
+        status = msg[0]
+        if status == 0xF0:
+            # SysEx message
+            if self._sysex_callback is not None:
+                self._sysex_callback(event, _data)
+            else:
+                self._logger.midi(f"RX sysex: {len(msg)} bytes")
+        elif (status & 0xF0) == 0x90 and len(msg) >= 3 and msg[2] > 0:
+            # Note On
+            if self._note_callback is not None:
+                self._note_callback(msg[1], msg[2], True)
+            self._logger.midi(f"RX note-on: {msg[1]} vel={msg[2]}")
+        elif (status & 0xF0) == 0x80 or ((status & 0xF0) == 0x90 and len(msg) >= 3 and msg[2] == 0):
+            # Note Off
+            if self._note_callback is not None:
+                self._note_callback(msg[1], 0, False)
+            self._logger.midi(f"RX note-off: {msg[1]}")
+        else:
+            self._logger.midi(f"RX raw: {[hex(b) for b in msg]}")
+
+    def set_note_callback(self, callback) -> None:
+        """Register a callback for incoming note messages: callback(note, velocity, is_on)."""
+        self._note_callback = callback
+
     def set_sysex_callback(self, callback) -> None:
+        """Register a callback for incoming SysEx messages."""
         if not self._connected:
             raise RuntimeError("Not connected to a MIDI device")
-        self._midi_in.ignore_types(sysex=False)
-        self._midi_in.set_callback(callback)
+        self._sysex_callback = callback

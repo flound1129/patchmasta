@@ -4,9 +4,10 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QSplitter,
     QMessageBox, QTabWidget, QToolBar, QFileDialog,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QObject, pyqtSignal
 from PyQt6.QtGui import QAction
 from ui.chat_panel import ChatPanel
+from ui.keyboard_widget import KeyboardPanel
 from ui.synth_params_panel import SynthParamsPanel
 from ui.synth_tabs import (
     TimbreSynthTab, ArpeggiatorTab, EffectsTab, VocoderTab, EQTab,
@@ -20,6 +21,11 @@ from tools.file_format import sysex_to_prog_bytes
 from core.config import AppConfig
 from core.chat_db import ChatHistoryDB
 from core.logger import AppLogger
+
+
+class _NoteSignalBridge(QObject):
+    """Thread-safe bridge from MIDI input thread to Qt main thread."""
+    note_received = pyqtSignal(int, int, bool)  # note, velocity, is_on
 
 
 class SynthEditorWindow(QMainWindow):
@@ -48,6 +54,7 @@ class SynthEditorWindow(QMainWindow):
             debounce_ms=getattr(config, "sysex_write_debounce_ms", 150)
         )
         self._sysex_writer.write_requested.connect(self._flush_sysex)
+        self._note_bridge = _NoteSignalBridge(self)
         self._build_ui()
         self._connect_signals()
 
@@ -118,8 +125,17 @@ class SynthEditorWindow(QMainWindow):
         )
         self._tab_widget.addTab(self._eq_tab, "EQ / Ribbon")
 
+        # Right side: tabs on top, keyboard on bottom
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self._tab_widget)
+        self._keyboard_panel = KeyboardPanel()
+        right_splitter.addWidget(self._keyboard_panel)
+        right_splitter.setStretchFactor(0, 1)  # tabs stretch
+        right_splitter.setStretchFactor(1, 0)  # keyboard fixed
+        right_splitter.setSizes([700, 100])
+
         splitter.addWidget(chat_container)
-        splitter.addWidget(self._tab_widget)
+        splitter.addWidget(right_splitter)
         splitter.setSizes([500, 1060])
 
         layout.addWidget(splitter)
@@ -140,6 +156,35 @@ class SynthEditorWindow(QMainWindow):
         self._chat_panel.backend_combo.currentTextChanged.connect(
             self._on_backend_changed
         )
+        # Keyboard click → device
+        self._keyboard_panel.note_pressed.connect(self._on_keyboard_note_pressed)
+        self._keyboard_panel.note_released.connect(self._on_keyboard_note_released)
+        # MIDI input thread → main thread bridge → keyboard
+        self._note_bridge.note_received.connect(self._on_midi_note_received)
+
+    # -- Keyboard / note handling --
+
+    def _on_keyboard_note_pressed(self, note: int, velocity: int) -> None:
+        if self._device.connected:
+            self._device.send_note_on(channel=1, note=note, velocity=velocity)
+        self._keyboard_panel.note_on(note, velocity)
+
+    def _on_keyboard_note_released(self, note: int) -> None:
+        if self._device.connected:
+            self._device.send_note_off(channel=1, note=note)
+        self._keyboard_panel.note_off(note)
+
+    def _on_midi_note_received(self, note: int, velocity: int, is_on: bool) -> None:
+        if is_on:
+            self._keyboard_panel.note_on(note, velocity)
+        else:
+            self._keyboard_panel.note_off(note)
+
+    def _on_ai_note_played(self, note: int, velocity: int, is_on: bool) -> None:
+        if is_on:
+            self._keyboard_panel.note_on(note, velocity)
+        else:
+            self._keyboard_panel.note_off(note)
 
     # -- Parameter change handling --
 
@@ -228,6 +273,14 @@ class SynthEditorWindow(QMainWindow):
 
     def set_device_connected(self, connected: bool) -> None:
         self._chat_panel.set_device_connected(connected)
+        if connected:
+            self._device.set_note_callback(
+                lambda note, vel, is_on: self._note_bridge.note_received.emit(
+                    note, vel, is_on
+                )
+            )
+        else:
+            self._keyboard_panel.clear_all_notes()
 
     def closeEvent(self, event) -> None:
         self.hide()
@@ -264,6 +317,7 @@ class SynthEditorWindow(QMainWindow):
         ctrl.tool_executed.connect(self._on_ai_tool)
         ctrl.error.connect(self._on_ai_error)
         ctrl.parameter_changed.connect(self._dispatch_param_to_ui)
+        ctrl.note_played.connect(self._on_ai_note_played)
         self._ai_controller = ctrl
         self._conversation_id = self._chat_db.add_conversation(backend_name)
         return ctrl

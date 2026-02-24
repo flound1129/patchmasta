@@ -65,6 +65,7 @@ class AIController(QObject):
     response_ready = pyqtSignal(str)      # AI text response
     tool_executed = pyqtSignal(str, str)  # tool_name, result_summary
     parameter_changed = pyqtSignal(str, int)  # param_name, value
+    note_played = pyqtSignal(int, int, bool)  # note, velocity, is_on
     error = pyqtSignal(str)
 
     def __init__(
@@ -246,10 +247,12 @@ class AIController(QObject):
             except Exception:
                 pass
         try:
+            self.note_played.emit(self._auto_note, self._auto_note_velocity, True)
             self._device.send_note_on(channel=1, note=self._auto_note,
                                        velocity=self._auto_note_velocity)
             time.sleep(self._auto_note_duration_ms / 1000.0)
             self._device.send_note_off(channel=1, note=self._auto_note)
+            self.note_played.emit(self._auto_note, 0, False)
         except Exception:
             pass
 
@@ -299,9 +302,11 @@ class AIController(QObject):
     def _tool_trigger_note(self, note: int, velocity: int, duration_ms: int) -> str:
         if not self._device.connected:
             return "Device not connected"
+        self.note_played.emit(note, velocity, True)
         self._device.send_note_on(channel=1, note=note, velocity=velocity)
         time.sleep(duration_ms / 1000.0)
         self._device.send_note_off(channel=1, note=note)
+        self.note_played.emit(note, 0, False)
         return f"Played note {note} vel={velocity} for {duration_ms}ms"
 
     def match_sound(self, wav_path: str, max_iterations: int = 10) -> None:
