@@ -131,7 +131,7 @@ class MainWindow(QMainWindow):
         h_splitter.addWidget(self._library_panel)
         h_splitter.addWidget(self._detail_panel)
         h_splitter.addWidget(self._device_panel)
-        h_splitter.setSizes([250, 450, 300])
+        h_splitter.setSizes([250, 900, 300])
 
         self._log_panel = LogPanel()
 
