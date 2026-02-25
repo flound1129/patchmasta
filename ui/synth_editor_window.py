@@ -318,7 +318,7 @@ class SynthEditorWindow(QMainWindow):
         )
         player.set_send_all_notes_off(
             lambda: (
-                self._device.send_cc(channel=1, cc=123, value=0)
+                self._device.send_cc(channel=1, cc=120, value=0)
                 if self._device.connected else None
             )
         )

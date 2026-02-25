@@ -133,7 +133,14 @@ class MidiFilePlayer(QObject):
             self._thread = None
         self._playing = False
         self._position = 0.0
-        self._all_notes_off()
+        # Send All Sound Off (CC 120) directly — don't rely on _active_notes
+        # which may have been cleared by the playback thread already.
+        if self._send_all_notes_off is not None:
+            try:
+                self._send_all_notes_off()
+            except Exception:
+                pass
+        self._active_notes.clear()
 
     def seek(self, seconds: float) -> None:
         """Seek to a position in seconds."""
