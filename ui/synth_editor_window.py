@@ -390,6 +390,10 @@ class SynthEditorWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         if self._midi_player is not None:
             self._midi_player.stop()
+            self._midi_player = None
+        self._transport_panel.reset()
+        self._keyboard_panel.clear_all_notes()
+        self._update_ai_note_suppression()
         self.hide()
         event.ignore()
 
