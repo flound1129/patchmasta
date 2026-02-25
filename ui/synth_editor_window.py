@@ -137,7 +137,9 @@ class SynthEditorWindow(QMainWindow):
         right_splitter.setStretchFactor(0, 1)  # tabs stretch
         right_splitter.setStretchFactor(1, 0)  # transport fixed
         right_splitter.setStretchFactor(2, 0)  # keyboard fixed
-        right_splitter.setSizes([664, 36, 100])
+        right_splitter.setCollapsible(1, False)
+        right_splitter.setCollapsible(2, False)
+        right_splitter.setSizes([656, 44, 100])
 
         splitter.addWidget(chat_container)
         splitter.addWidget(right_splitter)

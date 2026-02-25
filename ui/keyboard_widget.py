@@ -246,37 +246,37 @@ class TransportPanel(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(36)
+        self.setFixedHeight(44)
         self._duration: float = 0.0
         self._dragging = False
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 0, 4, 0)
+        layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(4)
 
         # Load button
         self._btn_load = QPushButton("Load MIDI...")
-        self._btn_load.setFixedWidth(90)
+        self._btn_load.setMinimumWidth(90)
         self._btn_load.clicked.connect(self.load_requested)
         layout.addWidget(self._btn_load)
 
         # Rewind
         self._btn_rewind = QPushButton("\u23EE")  # ⏮
-        self._btn_rewind.setFixedWidth(28)
+        self._btn_rewind.setMinimumWidth(36)
         self._btn_rewind.setEnabled(False)
         self._btn_rewind.clicked.connect(self.rewind_requested)
         layout.addWidget(self._btn_rewind)
 
         # Play / Pause
         self._btn_play = QPushButton("\u25B6")  # ▶
-        self._btn_play.setFixedWidth(28)
+        self._btn_play.setMinimumWidth(36)
         self._btn_play.setEnabled(False)
         self._btn_play.clicked.connect(self.play_pause_requested)
         layout.addWidget(self._btn_play)
 
         # Stop
         self._btn_stop = QPushButton("\u25A0")  # ■
-        self._btn_stop.setFixedWidth(28)
+        self._btn_stop.setMinimumWidth(36)
         self._btn_stop.setEnabled(False)
         self._btn_stop.clicked.connect(self.stop_requested)
         layout.addWidget(self._btn_stop)
@@ -307,12 +307,12 @@ class TransportPanel(QWidget):
         layout.addWidget(self._tempo_slider)
 
         self._tempo_label = QLabel("100%")
-        self._tempo_label.setFixedWidth(36)
+        self._tempo_label.setFixedWidth(40)
         layout.addWidget(self._tempo_label)
 
         # Loop toggle
         self._btn_loop = QPushButton("\U0001F501")  # 🔁
-        self._btn_loop.setFixedWidth(28)
+        self._btn_loop.setMinimumWidth(36)
         self._btn_loop.setCheckable(True)
         self._btn_loop.setEnabled(False)
         self._btn_loop.toggled.connect(self.loop_toggled)
