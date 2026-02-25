@@ -23,7 +23,7 @@ from ui.log_panel import LogPanel
 from ui.synth_editor_window import SynthEditorWindow
 from ui.settings_dialog import SettingsDialog
 from midi.params import ParamMap
-from core.config import AppConfig
+from core.config import AppConfig, downloads_dir
 from core.theme import apply_theme
 
 APP_ROOT = Path(__file__).parent.parent
@@ -202,7 +202,7 @@ class MainWindow(QMainWindow):
 
     def _on_load_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Load Patch File", "",
+            self, "Load Patch File", downloads_dir(),
             "RK-100S 2 Patch (*.rk100s2_prog);;All Files (*)",
         )
         if not path:

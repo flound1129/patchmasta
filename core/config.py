@@ -1,6 +1,35 @@
 from __future__ import annotations
 import json
+import os
 from pathlib import Path
+
+
+def downloads_dir() -> str:
+    """Return the user's Downloads directory, falling back to home."""
+    if os.name == "nt":
+        # Windows: use the known-folder GUID via SHGetKnownFolderPath
+        import ctypes
+        from ctypes import wintypes
+        FOLDERID_Downloads = ctypes.c_char_p(
+            b"\xe3\x9c\x5e\x37\x4f\x01\xa5\x4b\xa1\x2e\x4b\x71\x3b\x85\x01\x31"
+        )
+        buf = ctypes.c_wchar_p()
+        try:
+            ctypes.windll.shell32.SHGetKnownFolderPath(
+                FOLDERID_Downloads, 0, None, ctypes.byref(buf),
+            )
+            if buf.value:
+                return buf.value
+        except (OSError, AttributeError):
+            pass
+    # Linux / macOS / fallback
+    xdg = os.environ.get("XDG_DOWNLOAD_DIR")
+    if xdg and Path(xdg).is_dir():
+        return xdg
+    dl = Path.home() / "Downloads"
+    if dl.is_dir():
+        return str(dl)
+    return str(Path.home())
 
 _DEFAULTS = {
     "ai_backend": "claude",

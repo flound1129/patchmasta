@@ -19,7 +19,7 @@ from midi.sysex_buffer import SysExProgramBuffer, DebouncedSysExWriter
 from midi.sysex import build_program_write, extract_patch_name
 from midi.player import MidiFilePlayer
 from tools.file_format import sysex_to_prog_bytes
-from core.config import AppConfig
+from core.config import AppConfig, downloads_dir
 from core.chat_db import ChatHistoryDB
 from core.logger import AppLogger
 
@@ -289,7 +289,7 @@ class SynthEditorWindow(QMainWindow):
             return
         sysex_data = self._sysex_buffer.to_bytes()
         name = extract_patch_name(sysex_data) or "patch"
-        suggested = name.strip().replace(" ", "_") + ".rk100s2_prog"
+        suggested = str(Path(downloads_dir()) / (name.strip().replace(" ", "_") + ".rk100s2_prog"))
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Patch", suggested,
             "RK-100S 2 Patch (*.rk100s2_prog)",
@@ -351,7 +351,7 @@ class SynthEditorWindow(QMainWindow):
 
     def _on_load_midi(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Load MIDI File", "",
+            self, "Load MIDI File", downloads_dir(),
             "MIDI Files (*.mid *.midi);;All Files (*)",
         )
         if path:

@@ -8,6 +8,7 @@ from PyQt6.QtGui import QFont
 
 import markdown
 
+from core.config import downloads_dir
 from core.theme import get_theme
 
 
@@ -91,7 +92,7 @@ class ChatPanel(QWidget):
 
     def _pick_wav(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select WAV file", "", "WAV files (*.wav)"
+            self, "Select WAV file", downloads_dir(), "WAV files (*.wav)"
         )
         if path:
             self._wav_path = path
