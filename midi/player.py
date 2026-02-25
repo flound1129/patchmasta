@@ -117,11 +117,14 @@ class MidiFilePlayer(QObject):
         self._thread.start()
 
     def toggle_pause(self) -> None:
-        """Toggle pause state."""
+        """Toggle pause state. Silences active notes when pausing."""
         if not self._playing:
             return
         with self._lock:
             self._paused = not self._paused
+            pausing = self._paused
+        if pausing:
+            self._all_notes_off()
 
     def stop(self) -> None:
         """Stop playback and reset position."""
