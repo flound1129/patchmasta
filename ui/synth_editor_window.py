@@ -383,12 +383,25 @@ class SynthEditorWindow(QMainWindow):
         self._update_ai_note_suppression()
 
     def _update_ai_note_suppression(self) -> None:
-        """Suppress AI test notes while a MIDI file is actively playing."""
+        """Suppress AI test notes and SysEx writes while MIDI is playing.
+
+        Large SysEx program dumps (~400 bytes) block the MIDI output port
+        for ~130ms, causing audible timing jitter in the player.  NRPN/CC
+        messages (3 bytes) are unaffected and continue in real-time.
+        Deferred SysEx changes flush automatically when playback stops.
+        """
+        playing = (self._midi_player is not None
+                   and self._midi_player.playing
+                   and not self._midi_player.paused)
         if self._ai_controller is not None:
-            playing = (self._midi_player is not None
-                       and self._midi_player.playing
-                       and not self._midi_player.paused)
             self._ai_controller._suppress_notes = playing
+        if playing:
+            self._sysex_writer.cancel()
+            self._sysex_writer._suppressed = True
+        else:
+            self._sysex_writer._suppressed = False
+            if self._sysex_buffer.dirty:
+                self._sysex_writer.schedule()
 
     def closeEvent(self, event) -> None:
         if self._midi_player is not None:

@@ -139,6 +139,7 @@ class DebouncedSysExWriter(QObject):
         self._timer.setSingleShot(True)
         self._timer.setInterval(debounce_ms)
         self._timer.timeout.connect(self.write_requested.emit)
+        self._suppressed = False
 
     @property
     def debounce_ms(self) -> int:
@@ -149,7 +150,13 @@ class DebouncedSysExWriter(QObject):
         self._timer.setInterval(value)
 
     def schedule(self) -> None:
-        """(Re)start the debounce timer. Thread-safe via QMetaObject."""
+        """(Re)start the debounce timer. Thread-safe via QMetaObject.
+
+        No-op while suppressed (e.g. during MIDI file playback to avoid
+        large SysEx writes blocking the output port).
+        """
+        if self._suppressed:
+            return
         QMetaObject.invokeMethod(
             self._timer, "start", Qt.ConnectionType.AutoConnection,
         )
