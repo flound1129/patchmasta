@@ -105,7 +105,8 @@ class SynthParamsPanel(QWidget):
             self._on_user_change,
         )
         self._widgets["voice_mode"] = w
-        layout.addWidget(w, stretch=1)
+        layout.addWidget(w)
+        layout.addStretch()
         return group
 
     def _build_arpeggiator_group(self) -> QGroupBox:
@@ -119,31 +120,34 @@ class SynthParamsPanel(QWidget):
         self._widgets["arp_on_off"] = w
         layout.addWidget(w, row, 1)
 
-        # Type
-        layout.addWidget(QLabel("Type:"), row, 2)
-        w = _ParamCombo("arp_type", _ARP_TYPE_LABELS, _ARP_TYPE_RANGES, self._on_user_change)
-        self._widgets["arp_type"] = w
-        layout.addWidget(w, row, 3)
-
-        row = 1
         # Latch
-        layout.addWidget(QLabel("Latch:"), row, 0)
+        layout.addWidget(QLabel("Latch:"), row, 2)
         w = _ParamToggle("arp_latch", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["arp_latch"] = w
+        layout.addWidget(w, row, 3)
+
+        # Gate
+        layout.addWidget(QLabel("Gate:"), row, 4)
+        w = _ParamKnob("arp_gate", 0, 127, self._on_user_change)
+        self._widgets["arp_gate"] = w
+        layout.addWidget(w, row, 5)
+
+        row = 1
+        # Type
+        layout.addWidget(QLabel("Type:"), row, 0)
+        w = _ParamCombo("arp_type", _ARP_TYPE_LABELS, _ARP_TYPE_RANGES, self._on_user_change)
+        self._widgets["arp_type"] = w
         layout.addWidget(w, row, 1)
 
         # Select
         layout.addWidget(QLabel("Select:"), row, 2)
         w = _ParamRadioGroup("arp_select", _ARP_SELECT_LABELS, _ARP_SELECT_RANGES, self._on_user_change)
         self._widgets["arp_select"] = w
-        layout.addWidget(w, row, 3)
+        layout.addWidget(w, row, 3, 1, 3)
 
-        row = 2
-        # Gate
-        layout.addWidget(QLabel("Gate:"), row, 0)
-        w = _ParamKnob("arp_gate", 0, 127, self._on_user_change)
-        self._widgets["arp_gate"] = w
-        layout.addWidget(w, row, 1, 1, 1)
+        # Let combo and radio columns absorb extra width
+        layout.setColumnStretch(1, 1)
+        layout.setColumnStretch(3, 1)
 
         return group
 
@@ -181,7 +185,8 @@ class SynthParamsPanel(QWidget):
         layout.addWidget(QLabel("ON/OFF:"))
         w = _ParamToggle("vocoder_sw", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["vocoder_sw"] = w
-        layout.addWidget(w, stretch=1)
+        layout.addWidget(w)
+        layout.addStretch()
         return group
 
     def on_param_changed(self, name: str, value: int) -> None:
