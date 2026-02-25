@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Korg RK-100S 2 Patch Manager")
-        self.resize(1100, 900)
+        self.resize(1550, 900)
         self._logger = AppLogger()
         self._library = Library(root=APP_ROOT)
         self._selected_patch: Patch | None = None
