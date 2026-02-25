@@ -420,6 +420,7 @@ class SynthEditorWindow(QMainWindow):
         ctrl.parameter_changed.connect(self._dispatch_param_to_ui)
         ctrl.note_played.connect(self._on_ai_note_played)
         self._ai_controller = ctrl
+        self._update_ai_note_suppression()
         self._conversation_id = self._chat_db.add_conversation(backend_name)
         return ctrl
 
