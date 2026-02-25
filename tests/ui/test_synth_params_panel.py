@@ -25,21 +25,21 @@ def test_panel_creates_overview_param_widgets(app):
         assert f"patch{i}_dest" in panel._widgets
 
 
-def test_on_param_changed_updates_radio(app):
+def test_on_param_changed_updates_toggle(app):
     pm = ParamMap()
     panel = SynthParamsPanel(param_map=pm)
     # Set arp to "On" (value 127 maps to index 1)
     panel.on_param_changed("arp_on_off", 127)
     widget = panel._widgets["arp_on_off"]
-    assert widget._button_group.checkedButton().text() == "On"
+    assert widget.value == 64  # combo_index_to_value(1, _ON_OFF_RANGES) = 64
 
 
-def test_on_param_changed_updates_slider(app):
+def test_on_param_changed_updates_knob(app):
     pm = ParamMap()
     panel = SynthParamsPanel(param_map=pm)
     panel.on_param_changed("arp_gate", 64)
     widget = panel._widgets["arp_gate"]
-    assert widget._slider.value() == 64
+    assert widget.value == 64
 
 
 def test_user_change_triggers_callback(app):

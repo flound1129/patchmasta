@@ -5,7 +5,13 @@ from PyQt6.QtWidgets import (
     QLabel, QScrollArea, QGridLayout,
 )
 from midi.params import ParamMap, ParamDef
-from ui.widgets import ParamCombo as _ParamCombo, ParamRadioGroup as _ParamRadioGroup, ParamSlider as _ParamSlider
+from ui.widgets import (
+    ParamCombo as _ParamCombo,
+    ParamRadioGroup as _ParamRadioGroup,
+    ParamSlider as _ParamSlider,
+    ParamKnob as _ParamKnob,
+    ParamToggle as _ParamToggle,
+)
 
 # Value-label mappings from the RK-100S 2 Parameter Guide (p60-62)
 _ARP_TYPE_LABELS = ["Up", "Down", "Alt1", "Alt2", "Random", "Trigger"]
@@ -70,7 +76,7 @@ class SynthParamsPanel(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, _ParamCombo | _ParamRadioGroup | _ParamSlider] = {}
+        self._widgets: dict[str, _ParamCombo | _ParamRadioGroup | _ParamSlider | _ParamKnob | _ParamToggle] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -109,7 +115,7 @@ class SynthParamsPanel(QWidget):
         row = 0
         # ON/OFF
         layout.addWidget(QLabel("ON/OFF:"), row, 0)
-        w = _ParamRadioGroup("arp_on_off", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
+        w = _ParamToggle("arp_on_off", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["arp_on_off"] = w
         layout.addWidget(w, row, 1)
 
@@ -122,7 +128,7 @@ class SynthParamsPanel(QWidget):
         row = 1
         # Latch
         layout.addWidget(QLabel("Latch:"), row, 0)
-        w = _ParamRadioGroup("arp_latch", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
+        w = _ParamToggle("arp_latch", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["arp_latch"] = w
         layout.addWidget(w, row, 1)
 
@@ -135,9 +141,9 @@ class SynthParamsPanel(QWidget):
         row = 2
         # Gate
         layout.addWidget(QLabel("Gate:"), row, 0)
-        w = _ParamSlider("arp_gate", 0, 127, self._on_user_change)
+        w = _ParamKnob("arp_gate", 0, 127, self._on_user_change)
         self._widgets["arp_gate"] = w
-        layout.addWidget(w, row, 1, 1, 3)
+        layout.addWidget(w, row, 1, 1, 1)
 
         return group
 
@@ -173,7 +179,7 @@ class SynthParamsPanel(QWidget):
         group = QGroupBox("Vocoder")
         layout = QHBoxLayout(group)
         layout.addWidget(QLabel("ON/OFF:"))
-        w = _ParamRadioGroup("vocoder_sw", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
+        w = _ParamToggle("vocoder_sw", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["vocoder_sw"] = w
         layout.addWidget(w, stretch=1)
         return group

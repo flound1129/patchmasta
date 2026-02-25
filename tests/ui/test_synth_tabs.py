@@ -39,23 +39,24 @@ def test_timbre_tab_on_param_changed(app):
     tab = TimbreSynthTab(param_map=pm, timbre=1)
     # Should not crash for unknown param
     tab.on_param_changed("nonexistent", 42)
-    # Should update known param
+    # Should update known param (now a ParamKnob)
     tab.on_param_changed("t1_filter1_cutoff", 100)
     widget = tab.widgets["t1_filter1_cutoff"]
-    assert widget._slider.value() == 100
+    assert widget.value == 100
 
 
 def test_timbre_tab_user_change_callback(app):
+    from ui.widgets import ParamKnob
     pm = ParamMap()
     changes = []
     tab = TimbreSynthTab(
         param_map=pm, timbre=1,
         on_user_change=lambda n, v: changes.append((n, v)),
     )
-    # Simulate user changing a slider
+    # Simulate user changing a knob via its interactive setter
     widget = tab.widgets.get("t1_filter1_cutoff")
-    if widget:
-        widget._slider.setValue(64)
+    if widget and isinstance(widget, ParamKnob):
+        widget._set_value_interactive(64)
         assert len(changes) >= 1
         assert changes[-1][0] == "t1_filter1_cutoff"
 
@@ -138,6 +139,7 @@ def test_effects_tab_type_switch(app):
 
 def test_effects_tab_dynamic_user_change(app):
     """Change a dynamic param -> verify callback fires."""
+    from ui.widgets import ParamKnob
     pm = ParamMap()
     changes = []
     tab = EffectsTab(
@@ -145,9 +147,10 @@ def test_effects_tab_dynamic_user_change(app):
         on_user_change=lambda n, v: changes.append((n, v)),
     )
     tab.on_param_changed("fx1_type", 1)
-    # Manipulate the dynamic dry_wet slider
+    # Manipulate the dynamic dry_wet knob
     w = tab.widgets["fx1_dry_wet"]
-    w._slider.setValue(100)
+    assert isinstance(w, ParamKnob)
+    w._set_value_interactive(100)
     assert any(n == "fx1_dry_wet" for n, v in changes)
 
 
@@ -197,7 +200,7 @@ def test_vocoder_tab_on_param_changed(app):
     tab = VocoderTab(param_map=pm)
     tab.on_param_changed("vocoder_level_1", 100)
     w = tab.widgets["vocoder_level_1"]
-    assert w._slider.value() == 100
+    assert w.value == 100
 
 
 def test_effects_tab_ribbon_assign_always_present(app):

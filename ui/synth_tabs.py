@@ -11,7 +11,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt as QtCore_Qt
 from midi.params import ParamMap, ParamDef
 from midi.effects import EFFECT_TYPES, EffectParam, get_effect_type, fx_param_packed
-from ui.widgets import ParamCombo, ParamRadioGroup, ParamSlider
+from ui.widgets import ParamCombo, ParamRadioGroup, ParamSlider, ParamKnob, ParamToggle
+
+ParamWidget = ParamCombo | ParamRadioGroup | ParamSlider | ParamKnob | ParamToggle
 
 
 # Maps param section IDs to QGroupBox objectNames for section coloring.
@@ -50,7 +52,7 @@ _SECTION_CATEGORY: dict[str, str] = {
 def _make_widget(
     param: ParamDef,
     on_change: Callable[[str, int], None],
-) -> ParamCombo | ParamRadioGroup | ParamSlider:
+) -> ParamWidget:
     """Create the appropriate widget for a ParamDef based on its value_labels."""
     if param.value_labels:
         sorted_items = sorted(param.value_labels.items())
@@ -60,17 +62,19 @@ def _make_widget(
         for i, k in enumerate(keys):
             hi = keys[i + 1] - 1 if i + 1 < len(keys) else param.max_val
             ranges.append((k, hi))
+        if len(labels) == 2:
+            return ParamToggle(param.name, labels, ranges, on_change)
         if len(labels) <= 5:
             return ParamRadioGroup(param.name, labels, ranges, on_change)
         return ParamCombo(param.name, labels, ranges, on_change)
-    return ParamSlider(param.name, param.min_val, param.max_val, on_change)
+    return ParamKnob(param.name, param.min_val, param.max_val, on_change)
 
 
 def _build_section_group(
     title: str,
     params: list[ParamDef],
     on_change: Callable[[str, int], None],
-    widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider],
+    widgets: dict[str, ParamWidget],
     columns: int = 2,
     section_id: str | None = None,
 ) -> QGroupBox:
@@ -105,7 +109,7 @@ class TimbreSynthTab(QWidget):
         self._param_map = param_map
         self._timbre = timbre
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
+        self._widgets: dict[str, ParamWidget] = {}
         self._build_ui()
 
     def _get_params(self, section: str) -> list[ParamDef]:
@@ -151,7 +155,7 @@ class TimbreSynthTab(QWidget):
         outer.addWidget(scroll)
 
     @property
-    def widgets(self) -> dict[str, ParamCombo | ParamRadioGroup | ParamSlider]:
+    def widgets(self) -> dict[str, ParamWidget]:
         return self._widgets
 
     def on_param_changed(self, name: str, value: int) -> None:
@@ -172,7 +176,7 @@ class ArpeggiatorTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider | QCheckBox] = {}
+        self._widgets: dict[str, ParamWidget | QCheckBox] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -230,7 +234,7 @@ def _make_effect_widget(
     param: EffectParam,
     widget_name: str,
     on_change: Callable[[str, int], None],
-) -> ParamCombo | ParamRadioGroup | ParamSlider:
+) -> ParamWidget:
     """Create a widget for an EffectParam (not a ParamDef)."""
     if param.value_labels:
         sorted_items = sorted(param.value_labels.items())
@@ -240,10 +244,12 @@ def _make_effect_widget(
         for i, k in enumerate(keys):
             hi = keys[i + 1] - 1 if i + 1 < len(keys) else param.max_val
             ranges.append((k, hi))
+        if len(labels) == 2:
+            return ParamToggle(widget_name, labels, ranges, on_change)
         if len(labels) <= 5:
             return ParamRadioGroup(widget_name, labels, ranges, on_change)
         return ParamCombo(widget_name, labels, ranges, on_change)
-    return ParamSlider(widget_name, param.min_val, param.max_val, on_change)
+    return ParamKnob(widget_name, param.min_val, param.max_val, on_change)
 
 
 class EffectsTab(QWidget):
@@ -258,9 +264,9 @@ class EffectsTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
+        self._widgets: dict[str, ParamWidget] = {}
         # Dynamic effect-param widgets per FX slot (excludes ribbon_assign)
-        self._dynamic_widgets: dict[int, dict[str, ParamCombo | ParamRadioGroup | ParamSlider]] = {
+        self._dynamic_widgets: dict[int, dict[str, ParamWidget]] = {
             1: {}, 2: {},
         }
         # Container widgets for dynamic areas (cleared on type change)
@@ -415,7 +421,7 @@ class VocoderTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
+        self._widgets: dict[str, ParamWidget] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -463,11 +469,11 @@ class VocoderTab(QWidget):
                 level_p = self._param_map.get(level_name)
                 pan_p = self._param_map.get(pan_name)
                 if level_p:
-                    w = ParamSlider(level_name, 0, 127, self._on_user_change)
+                    w = ParamKnob(level_name, 0, 127, self._on_user_change)
                     self._widgets[level_name] = w
                     band_layout.addWidget(w, i + 1, 1)
                 if pan_p:
-                    w = ParamSlider(pan_name, 0, 127, self._on_user_change)
+                    w = ParamKnob(pan_name, 0, 127, self._on_user_change)
                     self._widgets[pan_name] = w
                     band_layout.addWidget(w, i + 1, 2)
             layout.addWidget(band_group)
@@ -500,7 +506,7 @@ class EQTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
+        self._widgets: dict[str, ParamWidget] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
