@@ -25,13 +25,13 @@ def test_panel_creates_overview_param_widgets(app):
         assert f"patch{i}_dest" in panel._widgets
 
 
-def test_on_param_changed_updates_combo(app):
+def test_on_param_changed_updates_radio(app):
     pm = ParamMap()
     panel = SynthParamsPanel(param_map=pm)
     # Set arp to "On" (value 127 maps to index 1)
     panel.on_param_changed("arp_on_off", 127)
     widget = panel._widgets["arp_on_off"]
-    assert widget.currentText() == "On"
+    assert widget._button_group.checkedButton().text() == "On"
 
 
 def test_on_param_changed_updates_slider(app):
@@ -72,7 +72,7 @@ def test_voice_mode_widget_exists(app):
     panel = SynthParamsPanel(param_map=pm)
     assert "voice_mode" in panel._widgets
     widget = panel._widgets["voice_mode"]
-    assert widget.count() == 4  # Single, Layer, Split, Multi
+    assert len(widget._button_group.buttons()) == 4  # Single, Layer, Split, Multi
 
 
 def test_virtual_patch_widgets_exist(app):

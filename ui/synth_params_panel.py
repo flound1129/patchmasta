@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QLabel, QScrollArea, QGridLayout,
 )
 from midi.params import ParamMap, ParamDef
-from ui.widgets import ParamCombo as _ParamCombo, ParamSlider as _ParamSlider
+from ui.widgets import ParamCombo as _ParamCombo, ParamRadioGroup as _ParamRadioGroup, ParamSlider as _ParamSlider
 
 # Value-label mappings from the RK-100S 2 Parameter Guide (p60-62)
 _ARP_TYPE_LABELS = ["Up", "Down", "Alt1", "Alt2", "Random", "Trigger"]
@@ -70,7 +70,7 @@ class SynthParamsPanel(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, _ParamCombo | _ParamSlider] = {}
+        self._widgets: dict[str, _ParamCombo | _ParamRadioGroup | _ParamSlider] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -94,12 +94,12 @@ class SynthParamsPanel(QWidget):
         group = QGroupBox("Voice")
         layout = QHBoxLayout(group)
         layout.addWidget(QLabel("Mode:"))
-        combo = _ParamCombo(
+        w = _ParamRadioGroup(
             "voice_mode", _VOICE_MODE_LABELS, _VOICE_MODE_RANGES,
             self._on_user_change,
         )
-        self._widgets["voice_mode"] = combo
-        layout.addWidget(combo, stretch=1)
+        self._widgets["voice_mode"] = w
+        layout.addWidget(w, stretch=1)
         return group
 
     def _build_arpeggiator_group(self) -> QGroupBox:
@@ -109,7 +109,7 @@ class SynthParamsPanel(QWidget):
         row = 0
         # ON/OFF
         layout.addWidget(QLabel("ON/OFF:"), row, 0)
-        w = _ParamCombo("arp_on_off", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
+        w = _ParamRadioGroup("arp_on_off", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["arp_on_off"] = w
         layout.addWidget(w, row, 1)
 
@@ -122,13 +122,13 @@ class SynthParamsPanel(QWidget):
         row = 1
         # Latch
         layout.addWidget(QLabel("Latch:"), row, 0)
-        w = _ParamCombo("arp_latch", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
+        w = _ParamRadioGroup("arp_latch", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["arp_latch"] = w
         layout.addWidget(w, row, 1)
 
         # Select
         layout.addWidget(QLabel("Select:"), row, 2)
-        w = _ParamCombo("arp_select", _ARP_SELECT_LABELS, _ARP_SELECT_RANGES, self._on_user_change)
+        w = _ParamRadioGroup("arp_select", _ARP_SELECT_LABELS, _ARP_SELECT_RANGES, self._on_user_change)
         self._widgets["arp_select"] = w
         layout.addWidget(w, row, 3)
 
@@ -173,7 +173,7 @@ class SynthParamsPanel(QWidget):
         group = QGroupBox("Vocoder")
         layout = QHBoxLayout(group)
         layout.addWidget(QLabel("ON/OFF:"))
-        w = _ParamCombo("vocoder_sw", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
+        w = _ParamRadioGroup("vocoder_sw", _ON_OFF_LABELS, _ON_OFF_RANGES, self._on_user_change)
         self._widgets["vocoder_sw"] = w
         layout.addWidget(w, stretch=1)
         return group
