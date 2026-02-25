@@ -346,7 +346,7 @@ class MainWindow(QMainWindow):
         editor = self._get_or_create_synth_editor()
         editor.setWindowTitle(f"Synth Editor — {patch.name}")
         if patch.sysex_data is not None:
-            editor.load_program_data(patch.sysex_data)
+            editor.load_program_data(patch.sysex_data, send_to_device=True)
         editor.show()
         editor.raise_()
         editor.activateWindow()

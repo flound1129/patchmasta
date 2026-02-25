@@ -247,9 +247,17 @@ class SynthEditorWindow(QMainWindow):
         self._sysex_buffer.mark_clean()
         self._logger.midi("SysEx program write sent")
 
-    def load_program_data(self, data: bytes) -> None:
-        """Load program SysEx data into buffer and update all UI widgets."""
+    def load_program_data(self, data: bytes, *, send_to_device: bool = False) -> None:
+        """Load program SysEx data into buffer and update all UI widgets.
+
+        When *send_to_device* is True the program is also written to the
+        Korg so the user hears the loaded patch immediately.
+        """
         self._sysex_buffer.load(data)
+        if send_to_device and self._device.connected:
+            msg = build_program_write(channel=1, data=data)
+            self._device.send(msg)
+            self._logger.midi("SysEx program write sent (patch load)")
         self._write_action.setEnabled(True)
         self._save_action.setEnabled(True)
         # Update UI from buffer for all ParamMap params (includes fx1_type/fx2_type,
