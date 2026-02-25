@@ -151,6 +151,11 @@ class SynthEditorWindow(QMainWindow):
         toolbar = QToolBar("File")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
+        self._write_action = QAction("Write to Device", self)
+        self._write_action.setEnabled(False)
+        self._write_action.triggered.connect(self._flush_sysex)
+        toolbar.addAction(self._write_action)
+
         self._save_action = QAction("Save Patch...", self)
         self._save_action.setEnabled(False)
         self._save_action.triggered.connect(self._on_save_patch)
@@ -204,15 +209,19 @@ class SynthEditorWindow(QMainWindow):
     # -- Parameter change handling --
 
     def _on_user_param_change(self, name: str, value: int) -> None:
-        """User adjusted a synth control widget -- send MIDI to device."""
+        """User adjusted a synth control widget -- send MIDI to device.
+
+        NRPN/CC params are sent immediately (small messages).
+        SysEx-only params update the buffer but are NOT written
+        automatically — use the "Write to Device" toolbar button.
+        """
         param = self._param_map.get(name)
         if param is None:
-            # Dynamic FX effect param (not in ParamMap) — SysEx-only write
+            # Dynamic FX effect param (not in ParamMap) — SysEx buffer only
             if self._device.connected:
                 packed = self._effects_tab.get_fx_sysex_offset(name)
                 if packed is not None and self._sysex_buffer.size > 0:
                     self._sysex_buffer.set_byte(packed, value)
-                    self._sysex_writer.schedule()
             return
 
         if not self._device.connected:
@@ -224,10 +233,9 @@ class SynthEditorWindow(QMainWindow):
             for i in range(0, len(msg), 3):
                 self._device.send(msg[i:i + 3])
 
-        # SysEx-only params: update buffer and debounce write
+        # SysEx-only params: update buffer (written on explicit "Write to Device")
         if param.sysex_offset is not None and self._sysex_buffer.size > 0:
             self._sysex_buffer.set_param(param, value)
-            self._sysex_writer.schedule()
 
     def _flush_sysex(self) -> None:
         """Write the full program buffer to the device via SysEx."""
@@ -242,6 +250,7 @@ class SynthEditorWindow(QMainWindow):
     def load_program_data(self, data: bytes) -> None:
         """Load program SysEx data into buffer and update all UI widgets."""
         self._sysex_buffer.load(data)
+        self._write_action.setEnabled(True)
         self._save_action.setEnabled(True)
         # Update UI from buffer for all ParamMap params (includes fx1_type/fx2_type,
         # which triggers dynamic FX widget rebuild in EffectsTab)
