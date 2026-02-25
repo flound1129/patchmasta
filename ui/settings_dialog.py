@@ -1,6 +1,6 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QDialog, QFormLayout, QLineEdit, QComboBox, QDialogButtonBox,
+    QApplication, QDialog, QFormLayout, QLineEdit, QComboBox, QDialogButtonBox,
 )  # noqa: F401 — QLineEdit still used by key fields
 from core.config import AppConfig
 from core.theme import apply_theme, THEMES
@@ -21,6 +21,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Settings")
         self._config = config
+        self._original_theme = config.theme
         self._build_ui()
         self._load_from_config()
 
@@ -34,6 +35,7 @@ class SettingsDialog(QDialog):
         self.theme_combo = QComboBox()
         for key, label in _THEME_LABELS:
             self.theme_combo.addItem(label, key)
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_preview)
         layout.addRow("Theme:", self.theme_combo)
 
         self.backend_combo = QComboBox()
@@ -54,20 +56,28 @@ class SettingsDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self._on_accept)
-        buttons.rejected.connect(self.reject)
+        buttons.rejected.connect(self._on_reject)
         layout.addRow(buttons)
 
     def _load_from_config(self) -> None:
-        # Theme
+        # Theme — block signals to avoid spurious preview during init
+        self.theme_combo.blockSignals(True)
         idx = self.theme_combo.findData(self._config.theme)
         if idx >= 0:
             self.theme_combo.setCurrentIndex(idx)
+        self.theme_combo.blockSignals(False)
 
         idx = self.backend_combo.findText(self._config.ai_backend)
         if idx >= 0:
             self.backend_combo.setCurrentIndex(idx)
         self.claude_key_edit.setText(self._config.claude_api_key)
         self.groq_key_edit.setText(self._config.groq_api_key)
+
+    def _on_theme_preview(self) -> None:
+        """Apply the selected theme immediately for live preview."""
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app, self.selected_theme)
 
     def _on_accept(self) -> None:
         self._config.theme = self.selected_theme
@@ -76,3 +86,10 @@ class SettingsDialog(QDialog):
         self._config.groq_api_key = self.groq_key_edit.text()
         self._config.save()
         self.accept()
+
+    def _on_reject(self) -> None:
+        """Revert to original theme on cancel."""
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app, self._original_theme)
+        self.reject()

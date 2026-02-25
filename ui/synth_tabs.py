@@ -11,13 +11,46 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt as QtCore_Qt
 from midi.params import ParamMap, ParamDef
 from midi.effects import EFFECT_TYPES, EffectParam, get_effect_type, fx_param_packed
-from ui.widgets import ParamCombo, ParamSlider
+from ui.widgets import ParamCombo, ParamRadioGroup, ParamSlider
+
+
+# Maps param section IDs to QGroupBox objectNames for section coloring.
+# The objectNames correspond to QSS rules in apply_theme().
+_SECTION_CATEGORY: dict[str, str] = {
+    "osc1": "section_osc",
+    "osc2": "section_osc",
+    "mixer": "section_osc",
+    "filter1": "section_filter",
+    "filter2": "section_filter",
+    "filter_routing": "section_filter",
+    "amp": "section_amp",
+    "amp_eg": "section_amp",
+    "filter_eg": "section_mod",
+    "assign_eg": "section_mod",
+    "lfo1": "section_mod",
+    "lfo2": "section_mod",
+    "voice_settings": "section_voice",
+    "pitch": "section_voice",
+    "eq": "section_voice",
+    "arpeggiator": "section_fx",
+    "arpeggiator_steps": "section_fx",
+    "fx1": "section_fx",
+    "fx2": "section_fx",
+    "vocoder": "section_voice",
+    "vocoder_carrier": "section_osc",
+    "vocoder_modulator": "section_osc",
+    "vocoder_filter": "section_filter",
+    "vocoder_amp": "section_amp",
+    "vocoder_band": "section_voice",
+    "long_ribbon": "section_voice",
+    "short_ribbon": "section_voice",
+}
 
 
 def _make_widget(
     param: ParamDef,
     on_change: Callable[[str, int], None],
-) -> ParamCombo | ParamSlider:
+) -> ParamCombo | ParamRadioGroup | ParamSlider:
     """Create the appropriate widget for a ParamDef based on its value_labels."""
     if param.value_labels:
         sorted_items = sorted(param.value_labels.items())
@@ -27,6 +60,8 @@ def _make_widget(
         for i, k in enumerate(keys):
             hi = keys[i + 1] - 1 if i + 1 < len(keys) else param.max_val
             ranges.append((k, hi))
+        if len(labels) <= 5:
+            return ParamRadioGroup(param.name, labels, ranges, on_change)
         return ParamCombo(param.name, labels, ranges, on_change)
     return ParamSlider(param.name, param.min_val, param.max_val, on_change)
 
@@ -35,11 +70,16 @@ def _build_section_group(
     title: str,
     params: list[ParamDef],
     on_change: Callable[[str, int], None],
-    widgets: dict[str, ParamCombo | ParamSlider],
+    widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider],
     columns: int = 2,
+    section_id: str | None = None,
 ) -> QGroupBox:
     """Build a QGroupBox with a grid of labeled param widgets."""
     group = QGroupBox(title)
+    if section_id:
+        cat = _SECTION_CATEGORY.get(section_id)
+        if cat:
+            group.setObjectName(cat)
     layout = QGridLayout(group)
     for i, p in enumerate(params):
         row, col = divmod(i, columns)
@@ -65,7 +105,7 @@ class TimbreSynthTab(QWidget):
         self._param_map = param_map
         self._timbre = timbre
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamSlider] = {}
+        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
         self._build_ui()
 
     def _get_params(self, section: str) -> list[ParamDef]:
@@ -99,7 +139,8 @@ class TimbreSynthTab(QWidget):
             params = self._get_params(section)
             if params:
                 group = _build_section_group(
-                    title, params, self._on_user_change, self._widgets
+                    title, params, self._on_user_change, self._widgets,
+                    section_id=section,
                 )
                 layout.addWidget(group)
 
@@ -110,7 +151,7 @@ class TimbreSynthTab(QWidget):
         outer.addWidget(scroll)
 
     @property
-    def widgets(self) -> dict[str, ParamCombo | ParamSlider]:
+    def widgets(self) -> dict[str, ParamCombo | ParamRadioGroup | ParamSlider]:
         return self._widgets
 
     def on_param_changed(self, name: str, value: int) -> None:
@@ -131,7 +172,7 @@ class ArpeggiatorTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamSlider | QCheckBox] = {}
+        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider | QCheckBox] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -144,7 +185,8 @@ class ArpeggiatorTab(QWidget):
         arp_params = [p for p in self._param_map.by_section("arpeggiator")]
         if arp_params:
             group = _build_section_group(
-                "Arpeggiator", arp_params, self._on_user_change, self._widgets
+                "Arpeggiator", arp_params, self._on_user_change, self._widgets,
+                section_id="arpeggiator",
             )
             layout.addWidget(group)
 
@@ -152,6 +194,7 @@ class ArpeggiatorTab(QWidget):
         step_params = self._param_map.by_section("arpeggiator_steps")
         if step_params:
             step_group = QGroupBox("Step Edit")
+            step_group.setObjectName("section_fx")
             step_layout = QHBoxLayout(step_group)
             for p in step_params:
                 cb = QCheckBox(p.display_name or f"Step")
@@ -187,7 +230,7 @@ def _make_effect_widget(
     param: EffectParam,
     widget_name: str,
     on_change: Callable[[str, int], None],
-) -> ParamCombo | ParamSlider:
+) -> ParamCombo | ParamRadioGroup | ParamSlider:
     """Create a widget for an EffectParam (not a ParamDef)."""
     if param.value_labels:
         sorted_items = sorted(param.value_labels.items())
@@ -197,6 +240,8 @@ def _make_effect_widget(
         for i, k in enumerate(keys):
             hi = keys[i + 1] - 1 if i + 1 < len(keys) else param.max_val
             ranges.append((k, hi))
+        if len(labels) <= 5:
+            return ParamRadioGroup(widget_name, labels, ranges, on_change)
         return ParamCombo(widget_name, labels, ranges, on_change)
     return ParamSlider(widget_name, param.min_val, param.max_val, on_change)
 
@@ -213,9 +258,9 @@ class EffectsTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamSlider] = {}
+        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
         # Dynamic effect-param widgets per FX slot (excludes ribbon_assign)
-        self._dynamic_widgets: dict[int, dict[str, ParamCombo | ParamSlider]] = {
+        self._dynamic_widgets: dict[int, dict[str, ParamCombo | ParamRadioGroup | ParamSlider]] = {
             1: {}, 2: {},
         }
         # Container widgets for dynamic areas (cleared on type change)
@@ -242,7 +287,8 @@ class EffectsTab(QWidget):
             ]
             if static_params:
                 group = _build_section_group(
-                    title, static_params, self._on_user_change, self._widgets
+                    title, static_params, self._on_user_change, self._widgets,
+                    section_id=section,
                 )
                 layout.addWidget(group)
 
@@ -296,6 +342,7 @@ class EffectsTab(QWidget):
         ranges = [(v, v) for v in sysex_vals]
         ribbon_widget = ParamCombo(ribbon_name, labels, ranges, self._on_user_change)
         ribbon_group = QGroupBox("Ribbon Assign")
+        ribbon_group.setObjectName("section_fx")
         ribbon_layout = QGridLayout(ribbon_group)
         ribbon_layout.addWidget(QLabel("Assign:"), 0, 0)
         ribbon_layout.addWidget(ribbon_widget, 0, 1)
@@ -309,6 +356,7 @@ class EffectsTab(QWidget):
             return
 
         group = QGroupBox(f"{typedef.name} Parameters")
+        group.setObjectName("section_fx")
         grid = QGridLayout(group)
         columns = 2
         for i, ep in enumerate(typedef.params):
@@ -367,7 +415,7 @@ class VocoderTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamSlider] = {}
+        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -380,7 +428,8 @@ class VocoderTab(QWidget):
         vocoder_main = [p for p in self._param_map.by_section("vocoder")]
         if vocoder_main:
             group = _build_section_group(
-                "Vocoder", vocoder_main, self._on_user_change, self._widgets
+                "Vocoder", vocoder_main, self._on_user_change, self._widgets,
+                section_id="vocoder",
             )
             layout.addWidget(group)
 
@@ -393,7 +442,8 @@ class VocoderTab(QWidget):
             params = self._param_map.by_section(section)
             if params:
                 group = _build_section_group(
-                    title, params, self._on_user_change, self._widgets
+                    title, params, self._on_user_change, self._widgets,
+                    section_id=section,
                 )
                 layout.addWidget(group)
 
@@ -401,6 +451,7 @@ class VocoderTab(QWidget):
         band_params = self._param_map.by_section("vocoder_band")
         if band_params:
             band_group = QGroupBox("Band Level / Pan")
+            band_group.setObjectName("section_voice")
             band_layout = QGridLayout(band_group)
             band_layout.addWidget(QLabel("Band"), 0, 0)
             band_layout.addWidget(QLabel("Level"), 0, 1)
@@ -449,7 +500,7 @@ class EQTab(QWidget):
         super().__init__(parent)
         self._param_map = param_map
         self._on_user_change = on_user_change or (lambda n, v: None)
-        self._widgets: dict[str, ParamCombo | ParamSlider] = {}
+        self._widgets: dict[str, ParamCombo | ParamRadioGroup | ParamSlider] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -462,7 +513,8 @@ class EQTab(QWidget):
         t1_eq = [p for p in self._param_map.by_section("eq") if p.timbre == 1]
         if t1_eq:
             group = _build_section_group(
-                "Timbre 1 EQ", t1_eq, self._on_user_change, self._widgets
+                "Timbre 1 EQ", t1_eq, self._on_user_change, self._widgets,
+                section_id="eq",
             )
             layout.addWidget(group)
 
@@ -470,7 +522,8 @@ class EQTab(QWidget):
         t2_eq = [p for p in self._param_map.by_section("eq") if p.timbre == 2]
         if t2_eq:
             group = _build_section_group(
-                "Timbre 2 EQ", t2_eq, self._on_user_change, self._widgets
+                "Timbre 2 EQ", t2_eq, self._on_user_change, self._widgets,
+                section_id="eq",
             )
             layout.addWidget(group)
 
@@ -478,7 +531,8 @@ class EQTab(QWidget):
         lr_params = self._param_map.by_section("long_ribbon")
         if lr_params:
             group = _build_section_group(
-                "Long Ribbon", lr_params, self._on_user_change, self._widgets
+                "Long Ribbon", lr_params, self._on_user_change, self._widgets,
+                section_id="long_ribbon",
             )
             layout.addWidget(group)
 
@@ -486,7 +540,8 @@ class EQTab(QWidget):
         sr_params = self._param_map.by_section("short_ribbon")
         if sr_params:
             group = _build_section_group(
-                "Short Ribbon", sr_params, self._on_user_change, self._widgets
+                "Short Ribbon", sr_params, self._on_user_change, self._widgets,
+                section_id="short_ribbon",
             )
             layout.addWidget(group)
 

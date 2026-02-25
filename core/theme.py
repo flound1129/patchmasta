@@ -38,6 +38,13 @@ class ThemeColors:
     tool_bubble_text: str
     # Accent for group box titles, active elements
     accent: str
+    # Section colors for synth editor group boxes
+    section_osc: str       # Oscillator / Mixer
+    section_filter: str    # Filter / Routing
+    section_amp: str       # AMP / AMP EG
+    section_mod: str       # Filter EG / Assignable EG / LFO
+    section_voice: str     # Voice / Pitch / EQ
+    section_fx: str        # Effects / Arpeggiator
 
 
 THEMES: dict[str, ThemeColors] = {
@@ -64,6 +71,12 @@ THEMES: dict[str, ThemeColors] = {
         tool_bubble_bg="#d1d5db",
         tool_bubble_text="#4b5563",
         accent="#2563eb",
+        section_osc="#d97706",
+        section_filter="#2563eb",
+        section_amp="#16a34a",
+        section_mod="#9333ea",
+        section_voice="#0891b2",
+        section_fx="#ca8a04",
     ),
     "dark": ThemeColors(
         name="dark",
@@ -88,6 +101,12 @@ THEMES: dict[str, ThemeColors] = {
         tool_bubble_bg="#262637",
         tool_bubble_text="#6c7086",
         accent="#89b4fa",
+        section_osc="#fab387",
+        section_filter="#89b4fa",
+        section_amp="#a6e3a1",
+        section_mod="#cba6f7",
+        section_voice="#94e2d5",
+        section_fx="#f9e2af",
     ),
     "korg": ThemeColors(
         name="korg",
@@ -112,6 +131,12 @@ THEMES: dict[str, ThemeColors] = {
         tool_bubble_bg="#1f1f1f",
         tool_bubble_text="#888888",
         accent="#cc0000",
+        section_osc="#ff6b35",
+        section_filter="#4ecdc4",
+        section_amp="#45b649",
+        section_mod="#b967ff",
+        section_voice="#05c3dd",
+        section_fx="#ffe66d",
     ),
     "ocean": ThemeColors(
         name="ocean",
@@ -136,6 +161,12 @@ THEMES: dict[str, ThemeColors] = {
         tool_bubble_bg="#132d4a",
         tool_bubble_text="#4a6a80",
         accent="#00b4d8",
+        section_osc="#ff8c42",
+        section_filter="#48cae4",
+        section_amp="#56cfa1",
+        section_mod="#a78bfa",
+        section_voice="#00b4d8",
+        section_fx="#fde68a",
     ),
     "sunset": ThemeColors(
         name="sunset",
@@ -160,6 +191,12 @@ THEMES: dict[str, ThemeColors] = {
         tool_bubble_bg="#3a2400",
         tool_bubble_text="#8a6a40",
         accent="#f59e0b",
+        section_osc="#f97316",
+        section_filter="#60a5fa",
+        section_amp="#4ade80",
+        section_mod="#c084fc",
+        section_voice="#2dd4bf",
+        section_fx="#fbbf24",
     ),
 }
 
@@ -226,6 +263,27 @@ def apply_theme(app: QApplication, theme_name: str) -> None:
     mid = colors.mid
     btn = colors.button
     btn_light = colors.light
+
+    # Section-colored group box rules
+    section_qss = ""
+    for attr in ("section_osc", "section_filter", "section_amp",
+                 "section_mod", "section_voice", "section_fx"):
+        sc = getattr(colors, attr)
+        # 30% opacity border: blend section color with mid
+        section_qss += f"""
+        QGroupBox#{attr} {{
+            border: 1px solid {sc};
+            border-radius: 4px;
+            margin-top: 8px;
+            padding-top: 4px;
+        }}
+        QGroupBox#{attr}::title {{
+            color: {sc};
+            subcontrol-origin: margin;
+            left: 8px;
+            padding: 0 4px;
+        }}"""
+
     app.setStyleSheet(f"""
         QGroupBox {{
             border: 1px solid {mid};
@@ -239,6 +297,7 @@ def apply_theme(app: QApplication, theme_name: str) -> None:
             left: 8px;
             padding: 0 4px;
         }}
+        {section_qss}
         QSplitter::handle {{
             background: {mid};
         }}

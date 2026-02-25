@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Callable
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QComboBox, QSlider,
+    QRadioButton, QButtonGroup,
 )
 from PyQt6.QtCore import Qt as QtCore_Qt
 
@@ -49,6 +50,50 @@ class ParamCombo(QComboBox):
         self.blockSignals(True)
         self.setCurrentIndex(value_to_combo_index(value, self._ranges))
         self.blockSignals(False)
+
+
+class ParamRadioGroup(QWidget):
+    """Horizontal radio-button group bound to a named parameter.
+
+    Drop-in replacement for ParamCombo when the option count is small (≤5).
+    """
+
+    def __init__(
+        self,
+        param_name: str,
+        labels: list[str],
+        ranges: list[tuple[int, int]],
+        on_change: Callable[[str, int], None],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.param_name = param_name
+        self._ranges = ranges
+        self._on_change = on_change
+        self._button_group = QButtonGroup(self)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        for i, text in enumerate(labels):
+            btn = QRadioButton(text)
+            self._button_group.addButton(btn, i)
+            layout.addWidget(btn)
+        if labels:
+            self._button_group.button(0).setChecked(True)
+        self._button_group.idClicked.connect(self._on_clicked)
+
+    def _on_clicked(self, idx: int) -> None:
+        value = combo_index_to_value(idx, self._ranges)
+        self._on_change(self.param_name, value)
+
+    def set_value(self, value: int) -> None:
+        idx = value_to_combo_index(value, self._ranges)
+        btn = self._button_group.button(idx)
+        if btn is not None:
+            self._button_group.blockSignals(True)
+            btn.blockSignals(True)
+            btn.setChecked(True)
+            btn.blockSignals(False)
+            self._button_group.blockSignals(False)
 
 
 class ParamSlider(QWidget):

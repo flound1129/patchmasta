@@ -30,6 +30,8 @@ def test_theme_colors_has_all_fields():
         "ai_bubble_bg", "ai_bubble_text",
         "tool_bubble_bg", "tool_bubble_text",
         "accent",
+        "section_osc", "section_filter", "section_amp",
+        "section_mod", "section_voice", "section_fx",
     }
     actual = {f.name for f in fields(ThemeColors)}
     assert expected == actual
