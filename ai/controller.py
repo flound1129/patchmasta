@@ -93,6 +93,7 @@ class AIController(QObject):
         self._auto_note = 60         # middle C
         self._auto_note_velocity = 100
         self._auto_note_duration_ms = 300
+        self._suppress_notes = False  # set True while MIDI file is playing
 
     def send_message(self, user_text: str) -> None:
         """Send a user message. Runs LLM call in a background thread."""
@@ -232,7 +233,7 @@ class AIController(QObject):
 
     def _flush_and_play_note(self) -> None:
         """Flush any pending SysEx write immediately, then play a brief note."""
-        if not self._device.connected:
+        if not self._device.connected or self._suppress_notes:
             return
         # Flush dirty SysEx buffer before playing so the note uses updated params
         if (self._sysex_buffer is not None
@@ -302,6 +303,8 @@ class AIController(QObject):
     def _tool_trigger_note(self, note: int, velocity: int, duration_ms: int) -> str:
         if not self._device.connected:
             return "Device not connected"
+        if self._suppress_notes:
+            return "Notes suppressed (MIDI file is playing)"
         self.note_played.emit(note, velocity, True)
         self._device.send_note_on(channel=1, note=note, velocity=velocity)
         time.sleep(duration_ms / 1000.0)

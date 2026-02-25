@@ -35,11 +35,13 @@ class PullWorker(QThread):
     progress = pyqtSignal(int, int, str)   # slots_done, slots_total, status_message
     finished = pyqtSignal(int, int)        # patches_received, slots_total
 
-    def __init__(self, device, slots: list[int], logger: AppLogger | None = None, parent=None) -> None:
+    def __init__(self, device, slots: list[int], logger: AppLogger | None = None,
+                 restore_slot: int | None = None, parent=None) -> None:
         super().__init__(parent)
         self._device = device
         self._slots = slots
         self._logger = logger or AppLogger()
+        self._restore_slot = restore_slot
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -96,6 +98,15 @@ class PullWorker(QThread):
         except Exception:
             pass
         finally:
+            # Restore device to the original slot after a multi-slot pull
+            if self._restore_slot is not None and not self._cancelled:
+                try:
+                    restore_msgs = build_slot_messages(channel=1, slot=self._restore_slot)
+                    for m in restore_msgs:
+                        self._device.send(m)
+                    self._logger.midi(f"Restored device to slot {self._restore_slot}")
+                except Exception:
+                    pass
             self.finished.emit(received_count, total)
 
 
@@ -109,6 +120,7 @@ class MainWindow(QMainWindow):
         self._selected_patch: Patch | None = None
         self._selected_patch_path: Path | None = None
         self._pull_worker: PullWorker | None = None
+        self._last_device_slot: int = 0
         self._config = AppConfig()
         self._param_map = ParamMap()
         self._synth_editor: SynthEditorWindow | None = None
@@ -207,7 +219,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Load Error", str(e))
 
-    def _start_pull(self, slots: list[int]) -> None:
+    def _start_pull(self, slots: list[int], restore_slot: int | None = None) -> None:
         device = self._device_panel.device
         if not device.connected:
             return
@@ -222,7 +234,8 @@ class MainWindow(QMainWindow):
         self._progress_dialog.setMinimumDuration(0)
         self._progress_dialog.setValue(0)
 
-        worker = PullWorker(device, slots, logger=self._logger, parent=self)
+        worker = PullWorker(device, slots, logger=self._logger,
+                            restore_slot=restore_slot, parent=self)
         self._pull_worker = worker
         self._progress_dialog.canceled.connect(worker.cancel)
         worker.patch_ready.connect(self._on_patch_ready)
@@ -261,6 +274,7 @@ class MainWindow(QMainWindow):
             self, "Pull Program", f"Slot to pull (0-{NUM_PROGRAMS - 1}):", 0, 0, NUM_PROGRAMS - 1
         )
         if ok:
+            self._last_device_slot = slot
             self._start_pull([slot])
 
     def _on_send_patch(self) -> None:
@@ -286,7 +300,7 @@ class MainWindow(QMainWindow):
             return
         self._library.clear_patches()
         self._refresh_library()
-        self._start_pull(list(range(NUM_PROGRAMS)))
+        self._start_pull(list(range(NUM_PROGRAMS)), restore_slot=self._last_device_slot)
 
     def _on_load_range(self) -> None:
         max_slot = NUM_PROGRAMS - 1
@@ -300,7 +314,7 @@ class MainWindow(QMainWindow):
         )
         if not ok2:
             return
-        self._start_pull(list(range(start, end + 1)))
+        self._start_pull(list(range(start, end + 1)), restore_slot=self._last_device_slot)
 
     # -- Synth Editor Window --
 

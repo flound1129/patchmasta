@@ -343,12 +343,14 @@ class SynthEditorWindow(QMainWindow):
         else:
             player.play()
             self._transport_panel.set_playing(True)
+        self._update_ai_note_suppression()
 
     def _on_transport_stop(self) -> None:
         if self._midi_player is not None:
             self._midi_player.stop()
         self._transport_panel.reset()
         self._keyboard_panel.clear_all_notes()
+        self._update_ai_note_suppression()
 
     def _on_rewind(self) -> None:
         if self._midi_player is not None:
@@ -369,6 +371,15 @@ class SynthEditorWindow(QMainWindow):
     def _on_playback_finished(self) -> None:
         self._transport_panel.reset()
         self._keyboard_panel.clear_all_notes()
+        self._update_ai_note_suppression()
+
+    def _update_ai_note_suppression(self) -> None:
+        """Suppress AI test notes while a MIDI file is actively playing."""
+        if self._ai_controller is not None:
+            playing = (self._midi_player is not None
+                       and self._midi_player.playing
+                       and not self._midi_player.paused)
+            self._ai_controller._suppress_notes = playing
 
     def closeEvent(self, event) -> None:
         if self._midi_player is not None:
