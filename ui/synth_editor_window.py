@@ -316,6 +316,12 @@ class SynthEditorWindow(QMainWindow):
                 if self._device.connected else None
             )
         )
+        player.set_send_all_notes_off(
+            lambda: (
+                self._device.send_cc(channel=1, cc=123, value=0)
+                if self._device.connected else None
+            )
+        )
         # Keyboard visualisation
         player.note_on.connect(self._keyboard_panel.note_on)
         player.note_off.connect(self._keyboard_panel.note_off)

@@ -45,6 +45,7 @@ class MidiFilePlayer(QObject):
         # Device output callables (set externally)
         self._send_note_on: Callable[[int, int, int], None] | None = None
         self._send_note_off: Callable[[int, int], None] | None = None
+        self._send_all_notes_off: Callable[[], None] | None = None
 
     @property
     def playing(self) -> bool:
@@ -67,6 +68,9 @@ class MidiFilePlayer(QObject):
 
     def set_send_note_off(self, callback: Callable[[int, int], None]) -> None:
         self._send_note_off = callback
+
+    def set_send_all_notes_off(self, callback: Callable[[], None]) -> None:
+        self._send_all_notes_off = callback
 
     def load_file(self, path: str) -> None:
         """Parse a MIDI file, merge tracks, and convert to timed event list."""
@@ -155,6 +159,12 @@ class MidiFilePlayer(QObject):
                 except Exception:
                     pass
         self._active_notes.clear()
+        # Belt-and-suspenders: send MIDI CC 123 (All Notes Off) to the device
+        if self._send_all_notes_off is not None:
+            try:
+                self._send_all_notes_off()
+            except Exception:
+                pass
 
     def _playback_loop(self) -> None:
         """Main playback thread loop."""
