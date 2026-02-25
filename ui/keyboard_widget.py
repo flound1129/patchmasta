@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPalette
+from PyQt6.QtGui import QColor, QFont, QPainter, QPalette
 from PyQt6.QtWidgets import (
     QHBoxLayout, QLabel, QPushButton, QSlider, QWidget,
 )
@@ -124,6 +124,7 @@ class VirtualKeyboardWidget(QWidget):
         black_bg = QColor(pal.color(QPalette.ColorRole.Dark))
         border = QColor(pal.color(QPalette.ColorRole.Mid))
 
+        c_labels: list[tuple[int, float, float, float]] = []
         for note, x, y, w, h, is_black in self._key_rects():
             vel = self._active_notes.get(note)
             if is_black:
@@ -144,6 +145,24 @@ class VirtualKeyboardWidget(QWidget):
                 painter.setBrush(color)
                 painter.setPen(border)
                 painter.drawRect(int(x), int(y), int(w), int(h))
+                # Collect C keys for labelling
+                if note % 12 == 0:
+                    c_labels.append((note, x, w, h))
+
+        # Draw octave labels on C keys
+        label_font = QFont()
+        label_font.setPixelSize(max(9, int(min(c_labels[0][2], 24) * 0.45)) if c_labels else 9)
+        painter.setFont(label_font)
+        painter.setPen(border)
+        for note, x, w, h in c_labels:
+            octave = note // 12 - 1
+            painter.drawText(
+                int(x), int(h - label_font.pixelSize() - 2),
+                int(w), label_font.pixelSize() + 2,
+                Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
+                f"C{octave}",
+            )
+
         painter.end()
 
     # -- Mouse interaction --
@@ -185,7 +204,15 @@ class KeyboardPanel(QWidget):
         self._btn_up.setToolTip("Shift up one octave")
         self._btn_up.clicked.connect(self._shift_up)
 
+        self._range_label = QLabel()
+        self._range_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._range_label.setFixedWidth(52)
+        font = self._range_label.font()
+        font.setPointSize(8)
+        self._range_label.setFont(font)
+
         layout.addWidget(self._btn_down)
+        layout.addWidget(self._range_label)
         layout.addWidget(self._keyboard, stretch=1)
         layout.addWidget(self._btn_up)
 
@@ -224,6 +251,7 @@ class KeyboardPanel(QWidget):
         lo = f"{note_names[base % 12]}{base // 12 - 1}"
         hi = f"{note_names[top % 12]}{top // 12 - 1}"
         self._keyboard.setToolTip(f"{lo}\u2013{hi}")
+        self._range_label.setText(f"{lo}\n{hi}")
 
 
 def _format_time(seconds: float) -> str:
@@ -293,7 +321,7 @@ class TransportPanel(QWidget):
 
         # Time label
         self._time_label = QLabel("0:00 / 0:00")
-        self._time_label.setFixedWidth(80)
+        self._time_label.setFixedWidth(100)
         layout.addWidget(self._time_label)
 
         # Tempo slider (25% – 400%)

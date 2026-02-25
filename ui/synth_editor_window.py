@@ -375,6 +375,9 @@ class SynthEditorWindow(QMainWindow):
             self._midi_player.set_loop(enabled)
 
     def _on_playback_finished(self) -> None:
+        # Fully reset the player (position, thread, notes) so replay works correctly
+        if self._midi_player is not None:
+            self._midi_player.stop()
         self._transport_panel.reset()
         self._keyboard_panel.clear_all_notes()
         self._update_ai_note_suppression()
